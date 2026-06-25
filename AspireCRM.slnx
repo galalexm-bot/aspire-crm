@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="AspireCRM.ApiService/AspireCRM.ApiService.csproj" />
+  <Project Path="AspireCRM.AppHost/AspireCRM.AppHost.csproj" />
+  <Project Path="AspireCRM.DataLayer/AspireCRM.DataLayer.csproj" />
+  <Project Path="AspireCRM.Domain/AspireCRM.Domain.csproj" />
+  <Project Path="AspireCRM.ServiceDefaults/AspireCRM.ServiceDefaults.csproj" />
+  <Project Path="AspireCRM.Tests/AspireCRM.Tests.csproj" />
+  <Project Path="AspireCRM.Web/AspireCRM.Web.csproj" />
+</Solution>
