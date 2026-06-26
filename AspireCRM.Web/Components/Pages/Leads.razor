@@ -55,7 +55,13 @@ else
                                @onchange="() => ToggleSelection(lead.Id)" />
                     </td>
                     <td>@lead.Id</td>
-                    <td>@lead.Name</td>
+                    <td>
+                        @lead.Name
+                        @if (lead.Status == LeadStatus.Dublicate)
+                        {
+                            <span class="badge bg-secondary ms-1">дубль</span>
+                        }
+                    </td>
                     <td>
                         <span class="badge @StatusBadgeClass(lead.Status)">@StatusDisplay(lead.Status)</span>
                     </td>

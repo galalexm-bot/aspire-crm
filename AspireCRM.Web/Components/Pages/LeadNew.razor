@@ -1,3 +1,4 @@
+@using AspireCRM.Web.Models
 @page "/leads/new"
 @rendermode InteractiveServer
 @inject CrmApiClient Api
@@ -11,7 +12,7 @@
     <div class="card-body">
         <div class="mb-3">
             <label class="form-label">Название</label>
-            <input @bind="lead.Name" class="form-control" />
+            <input @bind="lead.Name" @bind:after="ClearDuplicates" class="form-control" />
         </div>
         <div class="mb-3">
             <label class="form-label">Статус</label>
@@ -29,12 +30,66 @@
             <textarea @bind="lead.Description" class="form-control" rows="3"></textarea>
         </div>
         <button class="btn btn-primary" @onclick="Save">Создать</button>
-        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/leads")'>Отмена</button>
+        <button class="btn btn-outline-info ms-2" @onclick="CheckDuplicates" disabled="@(string.IsNullOrWhiteSpace(lead.Name) || isLoading)">
+            Проверить дубликаты
+        </button>
+        <button class="btn btn-secondary ms-2" @onclick='() => Nav.NavigateTo("/leads")'>Отмена</button>
+
+        @if (duplicateCandidates is not null)
+        {
+            if (duplicateCandidates.Count > 0)
+            {
+                <div class="alert alert-warning mt-3">
+                    <h6>Возможные дубликаты:</h6>
+                    <ul class="mb-0">
+                        @foreach (var c in duplicateCandidates)
+                        {
+                            <li>@c.Name — @(c.Similarity.ToString("P0")) совпадения</li>
+                        }
+                    </ul>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success mt-3">Дубликаты не найдены</div>
+            }
+        }
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger mt-3">@error</div>
+        }
     </div>
 </div>
 
 @code {
     private Lead lead = new() { Name = "", TenantId = 1, CreatedAt = DateTime.UtcNow, CreatedById = 1 };
+    private List<DuplicateCandidate>? duplicateCandidates;
+    private bool isLoading;
+    private string? error;
+
+    private void ClearDuplicates()
+    {
+        duplicateCandidates = null;
+    }
+
+    private async Task CheckDuplicates()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            duplicateCandidates = await Api.CheckDuplicatesAsync(lead.Name);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
 
     private async Task Save()
     {

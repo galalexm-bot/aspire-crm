@@ -1,3 +1,4 @@
+using AspireCRM.Web.Models;
 using System.Net.Http.Json;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
@@ -106,4 +107,16 @@ public class CrmApiClient(HttpClient http)
 
     public async Task ActivateLeadsAsync(long[] ids) =>
         await http.PostAsJsonAsync("/api/leads/batch/activate", new { ids });
+
+    public async Task<List<DuplicateCandidate>> CheckDuplicatesAsync(string name) =>
+        await http.GetFromJsonAsync<List<DuplicateCandidate>>($"/api/leads/check-duplicates?name={Uri.EscapeDataString(name)}") ?? [];
+
+    public async Task<List<DuplicateCandidate>> GetDuplicatesAsync(long id) =>
+        await http.GetFromJsonAsync<List<DuplicateCandidate>>($"/api/leads/{id}/duplicates") ?? [];
+
+    public async Task MarkDuplicateAsync(long id, long targetLeadId, string? comment = null) =>
+        await http.PostAsJsonAsync($"/api/leads/{id}/mark-duplicate", new { targetLeadId, comment });
+
+    public async Task UnmarkDuplicateAsync(long id) =>
+        await http.PostAsync($"/api/leads/{id}/unmark-duplicate", null);
 }

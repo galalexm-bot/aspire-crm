@@ -21,7 +21,7 @@ else
             </div>
             <div class="mb-3">
                 <label class="form-label">Статус</label>
-                <span class="badge @StatusBadgeClass fs-6">@StatusDisplay</span>
+                <span class="badge @StatusBadgeClass(lead?.Status) fs-6">@StatusDisplay(lead?.Status)</span>
             </div>
             <div class="mb-3">
                 <label class="form-label">Описание</label>
@@ -70,6 +70,33 @@ else
         </div>
     </div>
 
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5>Дубликаты</h5>
+        </div>
+        <div class="card-body">
+            @if (lead.Status == LeadStatus.Dublicate)
+            {
+                <p>
+                    <strong>Дубликат лида:</strong> @lead.DublicateLead
+                </p>
+                @if (!string.IsNullOrEmpty(lead.DublicateComment))
+                {
+                    <p><strong>Комментарий:</strong> @lead.DublicateComment</p>
+                }
+                <button class="btn btn-outline-secondary" @onclick="UnmarkDuplicate" disabled="@isLoading">
+                    Снять дубликат
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-outline-info" @onclick="LoadDuplicates" disabled="@isLoading">
+                    Проверить дубликаты
+                </button>
+            }
+        </div>
+    </div>
+
     @if (showFailModal)
     {
         <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
@@ -104,7 +131,68 @@ else
     {
         <div class="alert alert-success mt-3">@success</div>
     }
+
+    @if (showDuplicateModal)
+    {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Поиск дубликатов</h5>
+                        <button type="button" class="btn-close" @onclick="() => showDuplicateModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (duplicateCandidates is null)
+                        {
+                            <p><em>Поиск...</em></p>
+                        }
+                        else if (duplicateCandidates.Count == 0)
+                        {
+                            <p>Дубликаты не найдены</p>
+                        }
+                        else
+                        {
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Название</th>
+                                        <th>Статус</th>
+                                        <th>Совпадение</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var c in duplicateCandidates)
+                                    {
+                                        <tr>
+                                            <td>@c.Id</td>
+                                            <td>@c.Name</td>
+                                            <td>
+                                                <span class="badge @StatusBadgeClass(c.Status)">@StatusDisplay(c.Status)</span>
+                                            </td>
+                                            <td>@(c.Similarity.ToString("P0"))</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning" @onclick="() => MarkAsDuplicate(c.Id)" disabled="@isLoading">
+                                                    Это дубликат
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="() => showDuplicateModal = false">Закрыть</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
+
+@using AspireCRM.Web.Models
 
 @code {
     [Parameter] public long Id { get; set; }
@@ -114,8 +202,10 @@ else
     private string? success;
     private bool showFailModal;
     private string? failComment;
+    private bool showDuplicateModal;
+    private List<DuplicateCandidate>? duplicateCandidates;
 
-    private string StatusDisplay => lead?.Status switch
+    private string StatusDisplay(LeadStatus? status) => status switch
     {
         LeadStatus.New => "Новый",
         LeadStatus.InHand => "В работе",
@@ -123,10 +213,10 @@ else
         LeadStatus.Unqualified => "Неквалифицирован",
         LeadStatus.Dublicate => "Дубликат",
         LeadStatus.ConversationNotStart => "Разговор не состоялся",
-        _ => lead?.Status.ToString() ?? ""
+        _ => status?.ToString() ?? ""
     };
 
-    private string StatusBadgeClass => lead?.Status switch
+    private string StatusBadgeClass(LeadStatus? status) => status switch
     {
         LeadStatus.New => "bg-primary",
         LeadStatus.InHand => "bg-warning text-dark",
@@ -262,6 +352,69 @@ else
             await Api.ActivateLeadsAsync([Id]);
             lead = await Api.GetLeadAsync(Id);
             success = "Лид активирован";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadDuplicates()
+    {
+        isLoading = true;
+        error = null;
+        duplicateCandidates = null;
+        showDuplicateModal = true;
+        try
+        {
+            duplicateCandidates = await Api.GetDuplicatesAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task MarkAsDuplicate(long targetLeadId)
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.MarkDuplicateAsync(Id, targetLeadId);
+            lead = await Api.GetLeadAsync(Id);
+            showDuplicateModal = false;
+            success = "Лид помечен как дубликат";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UnmarkDuplicate()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.UnmarkDuplicateAsync(Id);
+            lead = await Api.GetLeadAsync(Id);
+            success = "Пометка о дубликате снята";
         }
         catch (Exception ex)
         {
