@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Common;
+using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
+using AspireCRM.Domain.Relationships;
+using AspireCRM.Domain.Sales;
 
 namespace AspireCRM.ApiService.Endpoints;
 
@@ -9,6 +12,9 @@ public record LeadStatusChangeRequest(string? Comment);
 public record LeadBatchActivateRequest(long[] Ids);
 public record MarkDuplicateRequest(long TargetLeadId, string? Comment);
 public record DuplicateCandidate(long Id, string Name, string? Description, LeadStatus Status, double Similarity);
+public record LeadConversionPreview(long LeadId, string LeadName, bool CanConvert, string[] AvailableTypes);
+public record LeadConversionRequest(string? Comment, string? SaleName, double? SaleVolume, string? RelationshipTheme, string? RelationshipDescription, DateTime? RelationshipStartDate, DateTime? RelationshipEndDate);
+public record LeadConversionResult(long LeadId, long ContractorId, long? SaleId, long? RelationshipId);
 
 public static class LeadEndpoints
 {
@@ -212,6 +218,169 @@ public static class LeadEndpoints
             await repo.UpdateAsync(lead);
 
             return Results.Ok(lead);
+        });
+
+        api.MapGet("/{id:long}/convert/preview", async (long id, IRepository<Lead> repo) =>
+        {
+            var lead = await repo.GetByIdAsync(id);
+            if (lead is null) return Results.NotFound();
+
+            var canConvert = lead.Status == LeadStatus.Qualified || lead.Status == LeadStatus.InHand;
+            var types = canConvert
+                ? new[] { "ContractorOnly", "ContractorAndSale", "ContractorAndRelationship" }
+                : [];
+
+            return Results.Ok(new LeadConversionPreview(lead.Id, lead.Name, canConvert, types));
+        });
+
+        api.MapPost("/{id:long}/convert", async (long id, LeadConversionRequest req, HttpContext http,
+            IRepository<Lead> leadRepo, IRepository<Contractor> contractorRepo, IRepository<Sale> saleRepo,
+            IRepository<Relationship> relRepo, IRepository<Contact> contactRepo,
+            IRepository<Comment> commentRepo) =>
+        {
+            var lead = await leadRepo.GetByIdAsync(id);
+            if (lead is null) return Results.NotFound();
+
+            if (lead.Status is not (LeadStatus.Qualified or LeadStatus.InHand))
+                return Results.BadRequest("Конвертация доступна только для лидов в статусе \"Квалифицирован\" или \"В работе\"");
+
+            var userId = GetUserId(http);
+            var hasSale = !string.IsNullOrWhiteSpace(req.SaleName);
+            var hasRelationship = !string.IsNullOrWhiteSpace(req.RelationshipTheme);
+
+            var contractor = new Contractor
+            {
+                Name = lead.Name,
+                Description = lead.Description,
+                Site = lead.Site,
+                ResponsibleId = lead.ResponsibleId,
+                TenantId = lead.TenantId,
+                CreatedAt = DateTime.UtcNow,
+                CreatedById = userId,
+                CreationDate = DateTime.UtcNow,
+                CreationAuthorId = userId
+            };
+
+            if (lead.Address is not null)
+            {
+                contractor.LegalAddress = new Address
+                {
+                    Country = lead.Address.Country,
+                    City = lead.Address.City,
+                    Street = lead.Address.Street,
+                    Building = lead.Address.Building,
+                    Apartment = lead.Address.Apartment,
+                    ZipCode = lead.Address.ZipCode,
+                    FullAddress = lead.Address.FullAddress,
+                    TenantId = lead.TenantId,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = userId
+                };
+            }
+
+            foreach (var email in lead.Emails)
+            {
+                contractor.Emails.Add(new Email
+                {
+                    EmailAddress = email.EmailAddress,
+                    Description = email.Description,
+                    TenantId = lead.TenantId,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = userId
+                });
+            }
+
+            foreach (var phone in lead.Phones)
+            {
+                contractor.Phones.Add(new Phone
+                {
+                    PhoneNumber = phone.PhoneNumber,
+                    Description = phone.Description,
+                    TenantId = lead.TenantId,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = userId
+                });
+            }
+
+            foreach (var leadContact in lead.Contacts)
+            {
+                var contact = contactRepo.FindAsync(c => c.Id == leadContact.ContactId).Result.FirstOrDefault();
+                if (contact is not null)
+                {
+                    contractor.Contacts.Add(contact);
+                }
+            }
+
+            contractor = await contractorRepo.AddAsync(contractor);
+
+            Sale? sale = null;
+            if (hasSale)
+            {
+                sale = new Sale
+                {
+                    Name = req.SaleName!,
+                    ContractorId = contractor.Id,
+                    Contractor = contractor,
+                    Description = lead.Description,
+                    MarketingEffect = lead.MarketingEffect,
+                    SaleStatus = SaleStatus.Active,
+                    ResponsibleId = lead.ResponsibleId ?? userId,
+                    AuthorId = userId,
+                    StartDate = DateTime.UtcNow,
+                    CreationDate = DateTime.UtcNow,
+                    TenantId = lead.TenantId,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = userId
+                };
+                if (req.SaleVolume.HasValue)
+                    sale.SalesVolume = req.SaleVolume;
+                sale = await saleRepo.AddAsync(sale);
+            }
+
+            Relationship? relationship = null;
+            if (hasRelationship)
+            {
+                relationship = new Relationship
+                {
+                    Theme = req.RelationshipTheme!,
+                    Description = req.RelationshipDescription ?? lead.Description,
+                    ContractorId = contractor.Id,
+                    StartDate = req.RelationshipStartDate ?? DateTime.UtcNow,
+                    EndDate = req.RelationshipEndDate ?? DateTime.UtcNow.AddHours(1),
+                    Priority = RelationshipPriority.Medium,
+                    TenantId = lead.TenantId,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = userId,
+                    CreationDate = DateTime.UtcNow,
+                    CreationAuthorId = userId
+                };
+                if (sale is not null)
+                    relationship.SaleId = sale.Id;
+                relationship = await relRepo.AddAsync(relationship);
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.Comment))
+            {
+                var comment = new Comment
+                {
+                    Text = req.Comment,
+                    AuthorId = userId,
+                    CreationDate = DateTime.UtcNow
+                };
+                comment = await commentRepo.AddAsync(comment);
+                lead.Comments.Add(comment);
+            }
+
+            lead.Status = LeadStatus.Qualified;
+            lead.ContractorId = contractor.Id;
+            lead.ConvertDate = DateTime.UtcNow;
+            lead.ChangeDate = DateTime.UtcNow;
+            lead.ChangeAuthorId = userId;
+            if (sale is not null)
+                lead.SaleId = sale.Id;
+            await leadRepo.UpdateAsync(lead);
+
+            return Results.Ok(new LeadConversionResult(lead.Id, contractor.Id, sale?.Id, relationship?.Id));
         });
     }
 

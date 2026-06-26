@@ -1,0 +1,170 @@
+@using AspireCRM.Web.Models
+@page "/leads/{Id:long}/convert"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Конвертация лида</PageTitle>
+
+<h1>Конвертация лида</h1>
+
+@if (preview is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (!preview.CanConvert)
+{
+    <div class="alert alert-warning">
+        Конвертация недоступна для лида в текущем статусе.
+    </div>
+    <a href="/leads/@Id" class="btn btn-secondary">Назад</a>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Лид: @preview.LeadName</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Комментарий к конвертации</label>
+                <textarea @bind="comment" class="form-control" rows="2"></textarea>
+            </div>
+
+            <h6 class="mb-2">Тип конвертации</h6>
+
+            @foreach (var opt in conversionOptions)
+            {
+                <div class="mb-2">
+                    <label class="form-check">
+                        <input type="radio" class="form-check-input" name="convertType"
+                               checked="@(selectedType == opt.Value)"
+                               @onchange="() => selectedType = opt.Value" />
+                        <span class="form-check-label">@opt.Label</span>
+                    </label>
+                </div>
+            }
+
+            @if (selectedType == "ContractorAndSale")
+            {
+                <div class="card mt-3 mb-3">
+                    <div class="card-header"><h6>Сделка</h6></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Название сделки</label>
+                            <input @bind="saleName" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Объем продаж</label>
+                            <input type="number" step="0.01" @bind="saleVolume" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (selectedType == "ContractorAndRelationship")
+            {
+                <div class="card mt-3 mb-3">
+                    <div class="card-header"><h6>Взаимоотношение</h6></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Тема</label>
+                            <input @bind="relTheme" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Описание</label>
+                            <textarea @bind="relDescription" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Дата начала</label>
+                            <input type="datetime-local" class="form-control"
+                                   value="@relStartDate"
+                                   @onchange="OnStartDateChange" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Дата окончания</label>
+                            <input type="datetime-local" class="form-control"
+                                   value="@relEndDate"
+                                   @onchange="OnEndDateChange" />
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="card-footer">
+            <button class="btn btn-success me-2" @onclick="Convert" disabled="@isLoading">
+                @(isLoading ? "Конвертация..." : "Конвертировать")
+            </button>
+            <a href="/leads/@Id" class="btn btn-secondary">Отмена</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private LeadConversionPreview? preview;
+    private string selectedType = "ContractorOnly";
+    private string? comment;
+    private string? saleName;
+    private double? saleVolume;
+    private string? relTheme;
+    private string? relDescription;
+    private string relStartDate = "";
+    private string relEndDate = "";
+    private bool isLoading;
+    private string? error;
+
+    private record ConvertOption(string Value, string Label);
+    private ConvertOption[] conversionOptions =
+    [
+        new("ContractorOnly", "Только контрагент"),
+        new("ContractorAndSale", "Контрагент + Сделка"),
+        new("ContractorAndRelationship", "Контрагент + Взаимоотношение")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        preview = await Api.GetConversionPreviewAsync(Id);
+    }
+
+    private void OnStartDateChange(ChangeEventArgs e) => relStartDate = e.Value?.ToString() ?? "";
+
+    private void OnEndDateChange(ChangeEventArgs e) => relEndDate = e.Value?.ToString() ?? "";
+
+    private async Task Convert()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            var req = new LeadConversionRequest(
+                Comment: comment,
+                SaleName: selectedType == "ContractorAndSale" ? saleName : null,
+                SaleVolume: selectedType == "ContractorAndSale" ? saleVolume : null,
+                RelationshipTheme: selectedType == "ContractorAndRelationship" ? relTheme : null,
+                RelationshipDescription: selectedType == "ContractorAndRelationship" ? relDescription : null,
+                RelationshipStartDate: selectedType == "ContractorAndRelationship" && !string.IsNullOrEmpty(relStartDate) ? DateTime.Parse(relStartDate) : null,
+                RelationshipEndDate: selectedType == "ContractorAndRelationship" && !string.IsNullOrEmpty(relEndDate) ? DateTime.Parse(relEndDate) : null
+            );
+            var result = await Api.ConvertLeadAsync(Id, req);
+            if (result is not null)
+            {
+                Nav.NavigateTo($"/contractors/{result.ContractorId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

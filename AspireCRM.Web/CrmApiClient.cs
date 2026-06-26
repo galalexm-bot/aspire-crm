@@ -119,4 +119,10 @@ public class CrmApiClient(HttpClient http)
 
     public async Task UnmarkDuplicateAsync(long id) =>
         await http.PostAsync($"/api/leads/{id}/unmark-duplicate", null);
+
+    public async Task<LeadConversionPreview?> GetConversionPreviewAsync(long id) =>
+        await http.GetFromJsonAsync<LeadConversionPreview>($"/api/leads/{id}/convert/preview");
+
+    public async Task<LeadConversionResult?> ConvertLeadAsync(long id, LeadConversionRequest req) =>
+        await http.PostAsJsonAsync<LeadConversionRequest>($"/api/leads/{id}/convert", req).Result.Content.ReadFromJsonAsync<LeadConversionResult>();
 }

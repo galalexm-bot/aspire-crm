@@ -61,6 +61,12 @@ else
                     Разговор не состоялся
                 </button>
             }
+            @if (lead.Status is LeadStatus.Qualified or LeadStatus.InHand)
+            {
+                <a href="/leads/@Id/convert" class="btn btn-primary me-2">
+                    Конвертировать
+                </a>
+            }
             @if (lead.Status == LeadStatus.Unqualified || lead.Status == LeadStatus.Dublicate)
             {
                 <button class="btn btn-info me-2" @onclick="ActivateLead" disabled="@isLoading">
