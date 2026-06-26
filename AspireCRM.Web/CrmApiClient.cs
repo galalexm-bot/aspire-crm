@@ -40,7 +40,18 @@ public class CrmApiClient(HttpClient http)
     public Task<List<Contractor>> GetContractorsAsync() => GetListAsync<Contractor>("/api/contractors");
     public Task<Contractor?> GetContractorAsync(long id) => GetByIdAsync<Contractor>("/api/contractors", id);
     public Task<Contractor> CreateContractorAsync(Contractor c) => CreateAsync("/api/contractors", c);
+    public async Task<Contractor> CreateContractorWithTypeAsync(CreateContractorRequest request)
+    {
+        var response = await http.PostAsJsonAsync("/api/contractors", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Contractor>())!;
+    }
     public Task UpdateContractorAsync(long id, Contractor c) => UpdateAsync("/api/contractors", id, c);
+    public async Task UpdateContractorWithDetailsAsync(long id, UpdateContractorRequest request)
+    {
+        var response = await http.PutAsJsonAsync($"/api/contractors/{id}", request);
+        response.EnsureSuccessStatusCode();
+    }
     public Task DeleteContractorAsync(long id) => DeleteAsync("/api/contractors", id);
 
     public async Task<Contractor?> GetContractorDetailAsync(long id) =>

@@ -1,0 +1,221 @@
+@page "/contractors/new"
+@using AspireCRM.Web.Models
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Новый контрагент</PageTitle>
+
+<h1>Новый контрагент</h1>
+
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Тип контрагента</label>
+            <select class="form-select" @bind="subType">
+                <option value="Legal">Юридическое лицо</option>
+                <option value="Individual">Индивидуальный предприниматель / Физ. лицо</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Название *</label>
+            <input @bind="request.Name" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Описание</label>
+            <textarea @bind="request.Description" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Сайт</label>
+                <input @bind="request.Site" class="form-control" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Факс</label>
+                <input @bind="request.Fax" class="form-control" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">ИНН</label>
+                <input @bind="request.INN" class="form-control" />
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Годовой доход</label>
+                <input @bind="request.AnnualIncome" class="form-control" type="number" step="0.01" />
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">День компании</label>
+                <input @bind="request.CompanyDay" class="form-control" type="date" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Регион</label>
+                <select class="form-select" @bind="request.RegionId">
+                    <option value="">-- Выберите --</option>
+                    @foreach (var r in regions)
+                    {
+                        <option value="@r.Id">@r.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Отрасль</label>
+                <select class="form-select" @bind="request.IndustryId">
+                    <option value="">-- Выберите --</option>
+                    @foreach (var ind in industries)
+                    {
+                        <option value="@ind.Id">@ind.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (subType == "Legal")
+        {
+            <div class="card mb-3">
+                <div class="card-header"><h5>Данные юридического лица</h5></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Организационно-правовая форма</label>
+                            <select class="form-select" @bind="request.LegalFormId">
+                                <option value="">-- Выберите --</option>
+                                @foreach (var lf in legalForms)
+                                {
+                                    <option value="@lf.Id">@lf.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Численность сотрудников</label>
+                            <input @bind="request.Staff" class="form-control" type="number" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">ОГРН</label>
+                            <input @bind="request.OGRN" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">КПП</label>
+                            <input @bind="request.KPP" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (subType == "Individual")
+        {
+            <div class="card mb-3">
+                <div class="card-header"><h5>Данные физического лица / ИП</h5></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Фамилия *</label>
+                            <input @bind="request.FirstName" class="form-control" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Имя</label>
+                            <input @bind="request.SecondName" class="form-control" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Отчество</label>
+                            <input @bind="request.MiddleName" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Тип документа</label>
+                            <select class="form-select" @bind="request.DocumentTypeId">
+                                <option value="">-- Выберите --</option>
+                                @foreach (var dt in documentTypes)
+                                {
+                                    <option value="@dt.Id">@dt.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Серия</label>
+                            <input @bind="request.DocumentSeries" class="form-control" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Номер</label>
+                            <input @bind="request.DocumentNumber" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Кем выдан</label>
+                        <input @bind="request.DocumentIssued" class="form-control" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Дата выдачи</label>
+                            <input @bind="request.DocumentIssueDate" class="form-control" type="date" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Дата окончания</label>
+                            <input @bind="request.DocumentEndDate" class="form-control" type="date" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <button class="btn btn-primary" @onclick="Save" disabled="@isLoading">Создать</button>
+        <button class="btn btn-secondary ms-2" @onclick='() => Nav.NavigateTo("/contractors")'>Отмена</button>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger mt-3">@error</div>
+        }
+    </div>
+</div>
+
+@code {
+    private CreateContractorRequest request = new();
+    private string subType = "Legal";
+    private bool isLoading;
+    private string? error;
+
+    private List<ContractorRegion> regions = [];
+    private List<ContractorIndustry> industries = [];
+    private List<LegalForm> legalForms = [];
+    private List<ClientDocumentType> documentTypes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        regions = await Api.GetLookupAsync<ContractorRegion>("regions");
+        industries = await Api.GetLookupAsync<ContractorIndustry>("industries");
+        legalForms = await Api.GetLookupAsync<LegalForm>("legal-forms");
+        documentTypes = await Api.GetLookupAsync<ClientDocumentType>("document-types");
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            error = "Название обязательно";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        try
+        {
+            request.SubType = subType;
+            var created = await Api.CreateContractorWithTypeAsync(request);
+            Nav.NavigateTo($"/contractors/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

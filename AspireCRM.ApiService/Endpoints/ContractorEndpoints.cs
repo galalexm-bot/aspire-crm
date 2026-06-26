@@ -41,15 +41,81 @@ public static class ContractorEndpoints
             return contractor is null ? Results.NotFound() : Results.Ok(contractor);
         });
 
-        api.MapPost("/", async (Contractor contractor, IRepository<Contractor> repo) =>
+        api.MapPost("/", async (CreateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
         {
-            var created = await repo.AddAsync(contractor);
-            return Results.Created($"/api/contractors/{created.Id}", created);
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            Contractor contractor = request.SubType switch
+            {
+                "Legal" => new ContractorLegal
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Fax = request.Fax,
+                    Site = request.Site,
+                    INN = request.INN,
+                    AnnualIncome = request.AnnualIncome,
+                    CompanyDay = request.CompanyDay,
+                    ResponsibleId = request.ResponsibleId,
+                    RegionId = request.RegionId,
+                    IndustryId = request.IndustryId,
+                    ContractorTypeId = request.ContractorTypeId,
+                    LegalFormId = request.LegalFormId,
+                    Staff = request.Staff,
+                    OGRN = request.OGRN,
+                    KPP = request.KPP,
+                },
+                "Individual" => new ContractorIndividual
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Fax = request.Fax,
+                    Site = request.Site,
+                    INN = request.INN,
+                    AnnualIncome = request.AnnualIncome,
+                    CompanyDay = request.CompanyDay,
+                    ResponsibleId = request.ResponsibleId,
+                    RegionId = request.RegionId,
+                    IndustryId = request.IndustryId,
+                    ContractorTypeId = request.ContractorTypeId,
+                    FirstName = request.FirstName ?? string.Empty,
+                    SecondName = request.SecondName,
+                    MiddleName = request.MiddleName,
+                    DocumentTypeId = request.DocumentTypeId,
+                    DocumentSeries = request.DocumentSeries,
+                    DocumentNumber = request.DocumentNumber,
+                    DocumentIssued = request.DocumentIssued,
+                    DocumentIssueDate = request.DocumentIssueDate ?? DateTime.UtcNow,
+                    DocumentEndDate = request.DocumentEndDate,
+                },
+                _ => new Contractor
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Fax = request.Fax,
+                    Site = request.Site,
+                    INN = request.INN,
+                    AnnualIncome = request.AnnualIncome,
+                    CompanyDay = request.CompanyDay,
+                    ResponsibleId = request.ResponsibleId,
+                    RegionId = request.RegionId,
+                    IndustryId = request.IndustryId,
+                    ContractorTypeId = request.ContractorTypeId,
+                }
+            };
+
+            contractor.TenantId = tenantService.TenantId.Value;
+            contractor.CreatedAt = DateTime.UtcNow;
+            db.Contractors.Add(contractor);
+            await db.SaveChangesAsync();
+            return Results.Created($"/api/contractors/{contractor.Id}", contractor);
         });
 
-        api.MapPut("/{id:long}", async (long id, Contractor contractor, AspireCRMDbContext db, ITenantService tenantService) =>
+        api.MapPut("/{id:long}", async (long id, UpdateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
         {
-            if (id != contractor.Id) return Results.BadRequest();
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
 
             var existing = await db.Contractors
                 .Include(c => c.LegalAddress)
@@ -58,53 +124,91 @@ public static class ContractorEndpoints
 
             if (existing is null) return Results.NotFound();
 
-            existing.Name = contractor.Name;
-            existing.Description = contractor.Description;
-            existing.Fax = contractor.Fax;
-            existing.Site = contractor.Site;
-            existing.INN = contractor.INN;
-            existing.AnnualIncome = contractor.AnnualIncome;
-            existing.CompanyDay = contractor.CompanyDay;
-            existing.ResponsibleId = contractor.ResponsibleId;
-            existing.RegionId = contractor.RegionId;
-            existing.IndustryId = contractor.IndustryId;
-            existing.ContractorTypeId = contractor.ContractorTypeId;
+            existing.Name = request.Name;
+            existing.Description = request.Description;
+            existing.Fax = request.Fax;
+            existing.Site = request.Site;
+            existing.INN = request.INN;
+            existing.AnnualIncome = request.AnnualIncome;
+            existing.CompanyDay = request.CompanyDay;
+            existing.ResponsibleId = request.ResponsibleId;
+            existing.RegionId = request.RegionId;
+            existing.IndustryId = request.IndustryId;
+            existing.ContractorTypeId = request.ContractorTypeId;
 
-            if (contractor.LegalAddress is not null)
+            if (existing is ContractorLegal legal)
+            {
+                legal.LegalFormId = request.LegalFormId;
+                legal.Staff = request.Staff;
+                legal.OGRN = request.OGRN;
+                legal.KPP = request.KPP;
+            }
+            else if (existing is ContractorIndividual individual)
+            {
+                individual.FirstName = request.FirstName ?? string.Empty;
+                individual.SecondName = request.SecondName;
+                individual.MiddleName = request.MiddleName;
+                individual.DocumentTypeId = request.DocumentTypeId;
+                individual.DocumentSeries = request.DocumentSeries;
+                individual.DocumentNumber = request.DocumentNumber;
+                individual.DocumentIssued = request.DocumentIssued;
+                individual.DocumentIssueDate = request.DocumentIssueDate ?? DateTime.UtcNow;
+                individual.DocumentEndDate = request.DocumentEndDate;
+            }
+
+            if (request.LegalAddress is not null)
             {
                 if (existing.LegalAddress is null)
                 {
-                    contractor.LegalAddress.TenantId = existing.TenantId;
-                    existing.LegalAddress = contractor.LegalAddress;
+                    existing.LegalAddress = new Address
+                    {
+                        Country = request.LegalAddress.Country,
+                        City = request.LegalAddress.City,
+                        Street = request.LegalAddress.Street,
+                        Building = request.LegalAddress.Building,
+                        Apartment = request.LegalAddress.Apartment,
+                        ZipCode = request.LegalAddress.ZipCode,
+                        FullAddress = request.LegalAddress.FullAddress,
+                        TenantId = existing.TenantId
+                    };
                 }
                 else
                 {
-                    existing.LegalAddress.Country = contractor.LegalAddress.Country;
-                    existing.LegalAddress.City = contractor.LegalAddress.City;
-                    existing.LegalAddress.Street = contractor.LegalAddress.Street;
-                    existing.LegalAddress.Building = contractor.LegalAddress.Building;
-                    existing.LegalAddress.Apartment = contractor.LegalAddress.Apartment;
-                    existing.LegalAddress.ZipCode = contractor.LegalAddress.ZipCode;
-                    existing.LegalAddress.FullAddress = contractor.LegalAddress.FullAddress;
+                    existing.LegalAddress.Country = request.LegalAddress.Country;
+                    existing.LegalAddress.City = request.LegalAddress.City;
+                    existing.LegalAddress.Street = request.LegalAddress.Street;
+                    existing.LegalAddress.Building = request.LegalAddress.Building;
+                    existing.LegalAddress.Apartment = request.LegalAddress.Apartment;
+                    existing.LegalAddress.ZipCode = request.LegalAddress.ZipCode;
+                    existing.LegalAddress.FullAddress = request.LegalAddress.FullAddress;
                 }
             }
 
-            if (contractor.PostalAddress is not null)
+            if (request.PostalAddress is not null)
             {
                 if (existing.PostalAddress is null)
                 {
-                    contractor.PostalAddress.TenantId = existing.TenantId;
-                    existing.PostalAddress = contractor.PostalAddress;
+                    existing.PostalAddress = new Address
+                    {
+                        Country = request.PostalAddress.Country,
+                        City = request.PostalAddress.City,
+                        Street = request.PostalAddress.Street,
+                        Building = request.PostalAddress.Building,
+                        Apartment = request.PostalAddress.Apartment,
+                        ZipCode = request.PostalAddress.ZipCode,
+                        FullAddress = request.PostalAddress.FullAddress,
+                        TenantId = existing.TenantId
+                    };
                 }
                 else
                 {
-                    existing.PostalAddress.Country = contractor.PostalAddress.Country;
-                    existing.PostalAddress.City = contractor.PostalAddress.City;
-                    existing.PostalAddress.Street = contractor.PostalAddress.Street;
-                    existing.PostalAddress.Building = contractor.PostalAddress.Building;
-                    existing.PostalAddress.Apartment = contractor.PostalAddress.Apartment;
-                    existing.PostalAddress.ZipCode = contractor.PostalAddress.ZipCode;
-                    existing.PostalAddress.FullAddress = contractor.PostalAddress.FullAddress;
+                    existing.PostalAddress.Country = request.PostalAddress.Country;
+                    existing.PostalAddress.City = request.PostalAddress.City;
+                    existing.PostalAddress.Street = request.PostalAddress.Street;
+                    existing.PostalAddress.Building = request.PostalAddress.Building;
+                    existing.PostalAddress.Apartment = request.PostalAddress.Apartment;
+                    existing.PostalAddress.ZipCode = request.PostalAddress.ZipCode;
+                    existing.PostalAddress.FullAddress = request.PostalAddress.FullAddress;
                 }
             }
 
@@ -347,3 +451,70 @@ public record AddEmailRequest(string EmailAddress, string? Description);
 public record AddPhoneRequest(string PhoneNumber, string? Description);
 public record BankAccountRequest(string Number, string? BIK, string? BankName, string? CorrespondentAccount, string? Description);
 public record PaymentCardRequest(string Number, string? CardholderName, string? Description);
+
+public record CreateContractorRequest(
+    string Name,
+    string SubType,
+    string? Description,
+    string? Fax,
+    string? Site,
+    string? INN,
+    double? AnnualIncome,
+    DateTime? CompanyDay,
+    long? ResponsibleId,
+    long? RegionId,
+    long? IndustryId,
+    long? ContractorTypeId,
+    long? LegalFormId,
+    long? Staff,
+    string? OGRN,
+    string? KPP,
+    string? FirstName,
+    string? SecondName,
+    string? MiddleName,
+    long? DocumentTypeId,
+    string? DocumentSeries,
+    string? DocumentNumber,
+    string? DocumentIssued,
+    DateTime? DocumentIssueDate,
+    DateTime? DocumentEndDate
+);
+
+public record UpdateContractorRequest(
+    string Name,
+    string? Description,
+    string? Fax,
+    string? Site,
+    string? INN,
+    double? AnnualIncome,
+    DateTime? CompanyDay,
+    long? ResponsibleId,
+    long? RegionId,
+    long? IndustryId,
+    long? ContractorTypeId,
+    long? LegalFormId,
+    long? Staff,
+    string? OGRN,
+    string? KPP,
+    string? FirstName,
+    string? SecondName,
+    string? MiddleName,
+    long? DocumentTypeId,
+    string? DocumentSeries,
+    string? DocumentNumber,
+    string? DocumentIssued,
+    DateTime? DocumentIssueDate,
+    DateTime? DocumentEndDate,
+    AddressDto? LegalAddress,
+    AddressDto? PostalAddress
+);
+
+public record AddressDto(
+    string? Country,
+    string? City,
+    string? Street,
+    string? Building,
+    string? Apartment,
+    string? ZipCode,
+    string? FullAddress
+);
