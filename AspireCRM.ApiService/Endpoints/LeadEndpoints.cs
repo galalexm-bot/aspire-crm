@@ -15,6 +15,8 @@ public record DuplicateCandidate(long Id, string Name, string? Description, Lead
 public record LeadConversionPreview(long LeadId, string LeadName, bool CanConvert, string[] AvailableTypes);
 public record LeadConversionRequest(string? Comment, string? SaleName, double? SaleVolume, string? RelationshipTheme, string? RelationshipDescription, DateTime? RelationshipStartDate, DateTime? RelationshipEndDate);
 public record LeadConversionResult(long LeadId, long ContractorId, long? SaleId, long? RelationshipId);
+public record LeadBatchAssignRequest(long[] Ids, long ResponsibleId);
+public record LeadBatchChangeSourceRequest(long[] Ids, long? SourceId);
 
 public static class LeadEndpoints
 {
@@ -138,6 +140,46 @@ public static class LeadEndpoints
                 lead.DublicateContractor = null;
                 lead.DublicateSale = null;
                 lead.DublicateComment = null;
+                lead.ChangeDate = DateTime.UtcNow;
+                lead.ChangeAuthorId = GetUserId(http);
+                await repo.UpdateAsync(lead);
+                successCount++;
+            }
+
+            return Results.Ok(new { SuccessCount = successCount, Errors = errors });
+        });
+
+        api.MapPost("/batch/assign", async (LeadBatchAssignRequest req, HttpContext http, IRepository<Lead> repo) =>
+        {
+            var errors = new List<string>();
+            var successCount = 0;
+
+            foreach (var id in req.Ids)
+            {
+                var lead = await repo.GetByIdAsync(id);
+                if (lead is null) continue;
+
+                lead.ResponsibleId = req.ResponsibleId;
+                lead.ChangeDate = DateTime.UtcNow;
+                lead.ChangeAuthorId = GetUserId(http);
+                await repo.UpdateAsync(lead);
+                successCount++;
+            }
+
+            return Results.Ok(new { SuccessCount = successCount, Errors = errors });
+        });
+
+        api.MapPost("/batch/change-source", async (LeadBatchChangeSourceRequest req, HttpContext http, IRepository<Lead> repo) =>
+        {
+            var errors = new List<string>();
+            var successCount = 0;
+
+            foreach (var id in req.Ids)
+            {
+                var lead = await repo.GetByIdAsync(id);
+                if (lead is null) continue;
+
+                lead.SourceId = req.SourceId;
                 lead.ChangeDate = DateTime.UtcNow;
                 lead.ChangeAuthorId = GetUserId(http);
                 await repo.UpdateAsync(lead);

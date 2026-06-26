@@ -80,6 +80,26 @@ public static class AuthEndpoints
         })
         .RequireAuthorization();
 
+        group.MapGet("/users", async (AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var users = await db.Users
+                .Where(u => u.TenantId == tenantService.TenantId.Value && u.IsActive)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Email,
+                    u.FirstName,
+                    u.LastName
+                })
+                .ToListAsync();
+
+            return Results.Ok(users);
+        })
+        .RequireAuthorization();
+
         return group;
     }
 

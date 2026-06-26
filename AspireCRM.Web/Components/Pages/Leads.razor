@@ -14,7 +14,13 @@
         <button class="btn btn-info ms-2" @onclick="ActivateSelected" disabled="@isLoading">
             Активировать (@selectedIds.Count)
         </button>
-        <button class="btn btn-secondary ms-2" @onclick="ClearSelection">Снять выделение</button>
+        <button class="btn btn-secondary ms-2" @onclick="OpenAssignModal">
+            Назначить ответственного (@selectedIds.Count)
+        </button>
+        <button class="btn btn-secondary ms-2" @onclick="OpenChangeSourceModal">
+            Изменить источник (@selectedIds.Count)
+        </button>
+        <button class="btn btn-outline-secondary ms-2" @onclick="ClearSelection">Снять выделение</button>
     }
 </p>
 
@@ -76,6 +82,70 @@ else
     </table>
 }
 
+@if (showAssignModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Назначить ответственного</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAssignModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ответственный</label>
+                        <select class="form-select" @bind="assignResponsibleId">
+                            <option value="0">-- Не назначен --</option>
+                            @foreach (var user in users)
+                            {
+                                <option value="@user.Id">@user.FirstName @user.LastName (@user.Email)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAssignModal">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="AssignSelected" disabled="@(assignResponsibleId == 0 || isLoading)">
+                        @(isLoading ? "Сохранение..." : "Назначить")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showChangeSourceModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Изменить источник</h5>
+                    <button type="button" class="btn-close" @onclick="CloseChangeSourceModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Источник</label>
+                        <select class="form-select" @bind="changeSourceId">
+                            <option value="0">-- Не указан --</option>
+                            @foreach (var source in leadSources)
+                            {
+                                <option value="@source.Id">@source.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseChangeSourceModal">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="ChangeSourceSelected" disabled="@isLoading">
+                        @(isLoading ? "Сохранение..." : "Изменить")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Lead>? leads;
     private HashSet<long> selectedIds = [];
@@ -84,9 +154,20 @@ else
     private string? error;
     private string? success;
 
+    private List<UserDto> users = [];
+    private List<LeadSource> leadSources = [];
+
+    private bool showAssignModal;
+    private long assignResponsibleId;
+
+    private bool showChangeSourceModal;
+    private long changeSourceId;
+
     protected override async Task OnInitializedAsync()
     {
         leads = await Api.GetLeadsAsync();
+        users = await Api.GetUsersAsync();
+        leadSources = await Api.GetLeadSourcesAsync();
     }
 
     private async Task Delete(long id)
@@ -132,6 +213,75 @@ else
             await Api.ActivateLeadsAsync([.. selectedIds]);
             success = $"Активировано лидов: {selectedIds.Count}";
             ClearSelection();
+            leads = await Api.GetLeadsAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenAssignModal()
+    {
+        assignResponsibleId = 0;
+        showAssignModal = true;
+    }
+
+    private void CloseAssignModal()
+    {
+        showAssignModal = false;
+    }
+
+    private async Task AssignSelected()
+    {
+        if (assignResponsibleId == 0) return;
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.BatchAssignAsync([.. selectedIds], assignResponsibleId);
+            success = $"Назначено лидов: {selectedIds.Count}";
+            ClearSelection();
+            CloseAssignModal();
+            leads = await Api.GetLeadsAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenChangeSourceModal()
+    {
+        changeSourceId = 0;
+        showChangeSourceModal = true;
+    }
+
+    private void CloseChangeSourceModal()
+    {
+        showChangeSourceModal = false;
+    }
+
+    private async Task ChangeSourceSelected()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.BatchChangeSourceAsync([.. selectedIds], changeSourceId == 0 ? null : changeSourceId);
+            success = $"Изменён источник для лидов: {selectedIds.Count}";
+            ClearSelection();
+            CloseChangeSourceModal();
             leads = await Api.GetLeadsAsync();
         }
         catch (Exception ex)
