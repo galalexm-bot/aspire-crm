@@ -1,0 +1,393 @@
+@page "/contractors/{Id:long}"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Контрагент @(contractor?.Name ?? "")</PageTitle>
+
+<h1>Контрагент</h1>
+
+@if (contractor is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    @if (!string.IsNullOrEmpty(success))
+    {
+        <div class="alert alert-success">@success</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>Основная информация</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Название</label>
+                    <input @bind="contractor.Name" class="form-control" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Тип контрагента</label>
+                    <select class="form-select" @bind="contractor.ContractorTypeId">
+                        <option value="">-- Выберите --</option>
+                        @foreach (var t in contractorTypes)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Описание</label>
+                <textarea @bind="contractor.Description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Сайт</label>
+                    <input @bind="contractor.Site" class="form-control" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Факс</label>
+                    <input @bind="contractor.Fax" class="form-control" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">ИНН</label>
+                    <input @bind="contractor.INN" class="form-control" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Годовой доход</label>
+                    <input @bind="contractor.AnnualIncome" class="form-control" type="number" step="0.01" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">День компании</label>
+                    <input @bind="contractor.CompanyDay" class="form-control" type="date" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Регион</label>
+                    <select class="form-select" @bind="contractor.RegionId">
+                        <option value="">-- Выберите --</option>
+                        @foreach (var r in regions)
+                        {
+                            <option value="@r.Id">@r.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Отрасль</label>
+                    <select class="form-select" @bind="contractor.IndustryId">
+                        <option value="">-- Выберите --</option>
+                        @foreach (var ind in industries)
+                        {
+                            <option value="@ind.Id">@ind.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <button class="btn btn-primary me-2" @onclick="Save" disabled="@isLoading">Сохранить</button>
+                <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/contractors")'>Назад</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header"><h5>Юридический адрес</h5></div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label">Страна</label>
+                        <input @bind="legalAddress.Country" class="form-control" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Город</label>
+                        <input @bind="legalAddress.City" class="form-control" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Улица</label>
+                        <input @bind="legalAddress.Street" class="form-control" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Дом</label>
+                            <input @bind="legalAddress.Building" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Квартира</label>
+                            <input @bind="legalAddress.Apartment" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Индекс</label>
+                        <input @bind="legalAddress.ZipCode" class="form-control" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Полный адрес</label>
+                        <input @bind="legalAddress.FullAddress" class="form-control" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header"><h5>Фактический адрес</h5></div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label">Страна</label>
+                        <input @bind="postalAddress.Country" class="form-control" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Город</label>
+                        <input @bind="postalAddress.City" class="form-control" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Улица</label>
+                        <input @bind="postalAddress.Street" class="form-control" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Дом</label>
+                            <input @bind="postalAddress.Building" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Квартира</label>
+                            <input @bind="postalAddress.Apartment" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Индекс</label>
+                        <input @bind="postalAddress.ZipCode" class="form-control" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Полный адрес</label>
+                        <input @bind="postalAddress.FullAddress" class="form-control" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="d-inline">Email</h5>
+                    <button class="btn btn-sm btn-outline-primary float-end" @onclick="() => showNewEmail = true">+ Добавить</button>
+                </div>
+                <div class="card-body">
+                    @if (showNewEmail)
+                    {
+                        <div class="input-group mb-2">
+                            <input @bind="newEmailAddress" class="form-control" placeholder="Email" />
+                            <input @bind="newEmailDescription" class="form-control" placeholder="Описание" />
+                            <button class="btn btn-success" @onclick="AddEmail" disabled="@isLoading">Добавить</button>
+                            <button class="btn btn-outline-secondary" @onclick="() => { showNewEmail = false; newEmailAddress = ''; newEmailDescription = ''; }">Отмена</button>
+                        </div>
+                    }
+                    @if (contractor.Emails.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Нет email</p>
+                    }
+                    @foreach (var email in contractor.Emails)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span><strong>@email.EmailAddress</strong> @(string.IsNullOrEmpty(email.Description) ? "" : $"({email.Description})")</span>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEmail(email.Id)" disabled="@isLoading">&times;</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="d-inline">Телефоны</h5>
+                    <button class="btn btn-sm btn-outline-primary float-end" @onclick="() => showNewPhone = true">+ Добавить</button>
+                </div>
+                <div class="card-body">
+                    @if (showNewPhone)
+                    {
+                        <div class="input-group mb-2">
+                            <input @bind="newPhoneNumber" class="form-control" placeholder="Телефон" />
+                            <input @bind="newPhoneDescription" class="form-control" placeholder="Описание" />
+                            <button class="btn btn-success" @onclick="AddPhone" disabled="@isLoading">Добавить</button>
+                            <button class="btn btn-outline-secondary" @onclick="() => { showNewPhone = false; newPhoneNumber = ''; newPhoneDescription = ''; }">Отмена</button>
+                        </div>
+                    }
+                    @if (contractor.Phones.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Нет телефонов</p>
+                    }
+                    @foreach (var phone in contractor.Phones)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span><strong>@phone.PhoneNumber</strong> @(string.IsNullOrEmpty(phone.Description) ? "" : $"({phone.Description})")</span>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemovePhone(phone.Id)" disabled="@isLoading">&times;</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private Contractor? contractor;
+    private Address legalAddress = new();
+    private Address postalAddress = new();
+    private bool isLoading;
+    private string? error;
+    private string? success;
+
+    private List<ContractorType> contractorTypes = [];
+    private List<ContractorRegion> regions = [];
+    private List<ContractorIndustry> industries = [];
+
+    private bool showNewEmail;
+    private string newEmailAddress = "";
+    private string? newEmailDescription;
+
+    private bool showNewPhone;
+    private string newPhoneNumber = "";
+    private string? newPhoneDescription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        contractor = await Api.GetContractorDetailAsync(Id);
+        if (contractor is not null)
+        {
+            legalAddress = contractor.LegalAddress ??= new Address();
+            postalAddress = contractor.PostalAddress ??= new Address();
+            contractor.LegalAddress = legalAddress;
+            contractor.PostalAddress = postalAddress;
+        }
+
+        contractorTypes = await Api.GetLookupAsync<ContractorType>("contractor-types");
+        regions = await Api.GetLookupAsync<ContractorRegion>("regions");
+        industries = await Api.GetLookupAsync<ContractorIndustry>("industries");
+    }
+
+    private async Task Save()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            if (contractor is not null)
+            {
+                await Api.UpdateContractorAsync(Id, contractor);
+                success = "Контрагент сохранен";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddEmail()
+    {
+        if (string.IsNullOrWhiteSpace(newEmailAddress)) return;
+        isLoading = true;
+        error = null;
+        try
+        {
+            var email = await Api.AddContractorEmailAsync(Id, newEmailAddress.Trim(), newEmailDescription);
+            contractor?.Emails.Add(email);
+            newEmailAddress = "";
+            newEmailDescription = null;
+            showNewEmail = false;
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RemoveEmail(long emailId)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.RemoveContractorEmailAsync(Id, emailId);
+            var email = contractor?.Emails.FirstOrDefault(e => e.Id == emailId);
+            if (email is not null) contractor?.Emails.Remove(email);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddPhone()
+    {
+        if (string.IsNullOrWhiteSpace(newPhoneNumber)) return;
+        isLoading = true;
+        error = null;
+        try
+        {
+            var phone = await Api.AddContractorPhoneAsync(Id, newPhoneNumber.Trim(), newPhoneDescription);
+            contractor?.Phones.Add(phone);
+            newPhoneNumber = "";
+            newPhoneDescription = null;
+            showNewPhone = false;
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RemovePhone(long phoneId)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.RemoveContractorPhoneAsync(Id, phoneId);
+            var phone = contractor?.Phones.FirstOrDefault(p => p.Id == phoneId);
+            if (phone is not null) contractor?.Phones.Remove(phone);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

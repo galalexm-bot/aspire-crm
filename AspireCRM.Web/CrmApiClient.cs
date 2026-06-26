@@ -43,6 +43,29 @@ public class CrmApiClient(HttpClient http)
     public Task UpdateContractorAsync(long id, Contractor c) => UpdateAsync("/api/contractors", id, c);
     public Task DeleteContractorAsync(long id) => DeleteAsync("/api/contractors", id);
 
+    public async Task<Contractor?> GetContractorDetailAsync(long id) =>
+        await http.GetFromJsonAsync<Contractor>($"/api/contractors/{id}/details");
+
+    public async Task<Email> AddContractorEmailAsync(long contractorId, string emailAddress, string? description = null)
+    {
+        var response = await http.PostAsJsonAsync($"/api/contractors/{contractorId}/emails", new { emailAddress, description });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Email>())!;
+    }
+
+    public async Task RemoveContractorEmailAsync(long contractorId, long emailId) =>
+        await http.DeleteAsync($"/api/contractors/{contractorId}/emails/{emailId}");
+
+    public async Task<Phone> AddContractorPhoneAsync(long contractorId, string phoneNumber, string? description = null)
+    {
+        var response = await http.PostAsJsonAsync($"/api/contractors/{contractorId}/phones", new { phoneNumber, description });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Phone>())!;
+    }
+
+    public async Task RemoveContractorPhoneAsync(long contractorId, long phoneId) =>
+        await http.DeleteAsync($"/api/contractors/{contractorId}/phones/{phoneId}");
+
     public Task<List<Contact>> GetContactsAsync(long? contractorId = null)
     {
         var url = contractorId.HasValue ? $"/api/contacts?contractorId={contractorId}" : "/api/contacts";
