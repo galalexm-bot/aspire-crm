@@ -1,7 +1,12 @@
+using System.Security.Claims;
 using AspireCRM.DataLayer.Repositories;
+using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Leads;
 
 namespace AspireCRM.ApiService.Endpoints;
+
+public record LeadStatusChangeRequest(string? Comment);
+public record LeadBatchActivateRequest(long[] Ids);
 
 public static class LeadEndpoints
 {
@@ -41,5 +46,93 @@ public static class LeadEndpoints
             await repo.DeleteAsync(lead);
             return Results.NoContent();
         });
+
+        api.MapPost("/{id:long}/begin", async (long id, HttpContext http, IRepository<Lead> repo) =>
+        {
+            var lead = await repo.GetByIdAsync(id);
+            if (lead is null) return Results.NotFound();
+            if (lead.Status == LeadStatus.InHand)
+                return Results.BadRequest("Лид уже имеет статус \"В работе\"");
+
+            lead.Status = LeadStatus.InHand;
+            lead.InHandDate = DateTime.UtcNow;
+            lead.ChangeDate = DateTime.UtcNow;
+            lead.ChangeAuthorId = GetUserId(http);
+            await repo.UpdateAsync(lead);
+
+            return Results.Ok(lead);
+        });
+
+        api.MapPost("/{id:long}/fail", async (long id, LeadStatusChangeRequest req, HttpContext http, IRepository<Lead> repo, IRepository<Comment> commentRepo) =>
+        {
+            var lead = await repo.GetByIdAsync(id);
+            if (lead is null) return Results.NotFound();
+
+            lead.Status = LeadStatus.Unqualified;
+            lead.ChangeDate = DateTime.UtcNow;
+            lead.ChangeAuthorId = GetUserId(http);
+            await repo.UpdateAsync(lead);
+
+            if (!string.IsNullOrWhiteSpace(req.Comment))
+            {
+                var comment = new Comment
+                {
+                    Text = req.Comment,
+                    AuthorId = GetUserId(http),
+                    CreationDate = DateTime.UtcNow
+                };
+                comment.Leads.Add(lead);
+                await commentRepo.AddAsync(comment);
+            }
+
+            return Results.Ok(lead);
+        });
+
+        api.MapPost("/{id:long}/conversation-not-start", async (long id, HttpContext http, IRepository<Lead> repo) =>
+        {
+            var lead = await repo.GetByIdAsync(id);
+            if (lead is null) return Results.NotFound();
+            if (lead.Status == LeadStatus.ConversationNotStart)
+                return Results.BadRequest("Лид уже имеет статус \"Разговор не состоялся\"");
+
+            lead.Status = LeadStatus.ConversationNotStart;
+            lead.ChangeDate = DateTime.UtcNow;
+            lead.ChangeAuthorId = GetUserId(http);
+            await repo.UpdateAsync(lead);
+
+            return Results.Ok(lead);
+        });
+
+        api.MapPost("/batch/activate", async (LeadBatchActivateRequest req, HttpContext http, IRepository<Lead> repo) =>
+        {
+            var errors = new List<string>();
+            var successCount = 0;
+
+            foreach (var id in req.Ids)
+            {
+                var lead = await repo.GetByIdAsync(id);
+                if (lead is null) continue;
+
+                if (lead.Status != LeadStatus.Unqualified && lead.Status != LeadStatus.Dublicate)
+                {
+                    errors.Add($"Лид #{id}: активация доступна только для статусов \"Неквалифицирован\" или \"Дубль\"");
+                    continue;
+                }
+
+                lead.Status = LeadStatus.New;
+                lead.ChangeDate = DateTime.UtcNow;
+                lead.ChangeAuthorId = GetUserId(http);
+                await repo.UpdateAsync(lead);
+                successCount++;
+            }
+
+            return Results.Ok(new { SuccessCount = successCount, Errors = errors });
+        });
+    }
+
+    private static long GetUserId(HttpContext http)
+    {
+        var claim = http.User.FindFirst("userId")?.Value;
+        return long.TryParse(claim, out var userId) ? userId : 0;
     }
 }

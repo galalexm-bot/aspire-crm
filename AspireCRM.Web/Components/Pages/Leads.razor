@@ -9,7 +9,23 @@
 
 <p>
     <a href="/leads/new" class="btn btn-primary">+ Новый лид</a>
+    @if (selectedIds.Count > 0)
+    {
+        <button class="btn btn-info ms-2" @onclick="ActivateSelected" disabled="@isLoading">
+            Активировать (@selectedIds.Count)
+        </button>
+        <button class="btn btn-secondary ms-2" @onclick="ClearSelection">Снять выделение</button>
+    }
 </p>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
 
 @if (leads is null)
 {
@@ -20,6 +36,9 @@ else
     <table class="table table-striped">
         <thead>
             <tr>
+                <th>
+                    <input type="checkbox" @bind="selectAll" @bind:after="ToggleSelectAll" />
+                </th>
                 <th>ID</th>
                 <th>Название</th>
                 <th>Статус</th>
@@ -31,9 +50,15 @@ else
             @foreach (var lead in leads)
             {
                 <tr>
+                    <td>
+                        <input type="checkbox" checked="@selectedIds.Contains(lead.Id)"
+                               @onchange="() => ToggleSelection(lead.Id)" />
+                    </td>
                     <td>@lead.Id</td>
                     <td>@lead.Name</td>
-                    <td>@lead.Status</td>
+                    <td>
+                        <span class="badge @StatusBadgeClass(lead.Status)">@StatusDisplay(lead.Status)</span>
+                    </td>
                     <td>@lead.CreatedAt.ToShortDateString()</td>
                     <td>
                         <a href="/leads/@lead.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
@@ -47,6 +72,11 @@ else
 
 @code {
     private List<Lead>? leads;
+    private HashSet<long> selectedIds = [];
+    private bool selectAll;
+    private bool isLoading;
+    private string? error;
+    private string? success;
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,5 +87,76 @@ else
     {
         await Api.DeleteLeadAsync(id);
         leads = await Api.GetLeadsAsync();
+        selectedIds.Remove(id);
     }
+
+    private void ToggleSelection(long id)
+    {
+        if (!selectedIds.Remove(id))
+            selectedIds.Add(id);
+        selectAll = selectedIds.Count == leads?.Count;
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (leads is null) return;
+        if (selectAll)
+        {
+            selectedIds = [.. leads.Select(l => l.Id)];
+        }
+        else
+        {
+            selectedIds.Clear();
+        }
+    }
+
+    private void ClearSelection()
+    {
+        selectedIds.Clear();
+        selectAll = false;
+    }
+
+    private async Task ActivateSelected()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.ActivateLeadsAsync([.. selectedIds]);
+            success = $"Активировано лидов: {selectedIds.Count}";
+            ClearSelection();
+            leads = await Api.GetLeadsAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string StatusDisplay(LeadStatus status) => status switch
+    {
+        LeadStatus.New => "Новый",
+        LeadStatus.InHand => "В работе",
+        LeadStatus.Qualified => "Квалифицирован",
+        LeadStatus.Unqualified => "Неквалифицирован",
+        LeadStatus.Dublicate => "Дубликат",
+        LeadStatus.ConversationNotStart => "Разговор не состоялся",
+        _ => status.ToString()
+    };
+
+    private string StatusBadgeClass(LeadStatus status) => status switch
+    {
+        LeadStatus.New => "bg-primary",
+        LeadStatus.InHand => "bg-warning text-dark",
+        LeadStatus.Qualified => "bg-success",
+        LeadStatus.Unqualified => "bg-danger",
+        LeadStatus.Dublicate => "bg-secondary",
+        LeadStatus.ConversationNotStart => "bg-dark",
+        _ => "bg-light"
+    };
 }

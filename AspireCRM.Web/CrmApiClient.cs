@@ -94,4 +94,16 @@ public class CrmApiClient(HttpClient http)
     public Task DeleteRelationshipAsync(long id) => DeleteAsync("/api/relationships", id);
 
     public Task<List<T>> GetLookupAsync<T>(string name) => GetListAsync<T>($"/api/lookups/{name}");
+
+    public async Task BeginLeadAsync(long id) =>
+        await http.PostAsync($"/api/leads/{id}/begin", null);
+
+    public async Task FailLeadAsync(long id, string? comment = null) =>
+        await http.PostAsJsonAsync($"/api/leads/{id}/fail", new { comment });
+
+    public async Task ConversationNotStartAsync(long id) =>
+        await http.PostAsync($"/api/leads/{id}/conversation-not-start", null);
+
+    public async Task ActivateLeadsAsync(long[] ids) =>
+        await http.PostAsJsonAsync("/api/leads/batch/activate", new { ids });
 }

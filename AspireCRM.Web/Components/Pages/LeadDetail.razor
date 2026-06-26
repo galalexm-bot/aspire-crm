@@ -13,7 +13,7 @@
 }
 else
 {
-    <div class="card">
+    <div class="card mb-3">
         <div class="card-body">
             <div class="mb-3">
                 <label class="form-label">Название</label>
@@ -21,28 +21,121 @@ else
             </div>
             <div class="mb-3">
                 <label class="form-label">Статус</label>
-                <select @bind="lead.Status" class="form-select">
-                    <option value="@LeadStatus.New">Новый</option>
-                    <option value="@LeadStatus.InHand">В работе</option>
-                    <option value="@LeadStatus.Qualified">Квалифицирован</option>
-                    <option value="@LeadStatus.Unqualified">Неквалифицирован</option>
-                    <option value="@LeadStatus.Dublicate">Дубликат</option>
-                    <option value="@LeadStatus.ConversationNotStart">Разговор не начат</option>
-                </select>
+                <span class="badge @StatusBadgeClass fs-6">@StatusDisplay</span>
             </div>
             <div class="mb-3">
                 <label class="form-label">Описание</label>
                 <textarea @bind="lead.Description" class="form-control" rows="3"></textarea>
             </div>
-            <button class="btn btn-primary" @onclick="Save">Сохранить</button>
-            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/leads")'>Назад</button>
+
+            <div class="mb-3">
+                <button class="btn btn-primary me-2" @onclick="Save">Сохранить</button>
+                <button class="btn btn-secondary me-2" @onclick='() => Nav.NavigateTo("/leads")'>Назад</button>
+            </div>
         </div>
     </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Действия</h5>
+        </div>
+        <div class="card-body">
+            @if (lead.Status == LeadStatus.New || lead.Status == LeadStatus.ConversationNotStart)
+            {
+                <button class="btn btn-success me-2" @onclick="BeginWork" disabled="@isLoading">
+                    Взять в работу
+                </button>
+                <button class="btn btn-danger me-2" @onclick="() => showFailModal = true" disabled="@isLoading">
+                    Отказать
+                </button>
+            }
+            @if (lead.Status == LeadStatus.InHand)
+            {
+                <button class="btn btn-success me-2" @onclick="QualifyLead" disabled="@isLoading">
+                    Квалифицировать
+                </button>
+                <button class="btn btn-danger me-2" @onclick="() => showFailModal = true" disabled="@isLoading">
+                    Отказать
+                </button>
+                <button class="btn btn-warning me-2" @onclick="ConversationNotStart" disabled="@isLoading">
+                    Разговор не состоялся
+                </button>
+            }
+            @if (lead.Status == LeadStatus.Unqualified || lead.Status == LeadStatus.Dublicate)
+            {
+                <button class="btn btn-info me-2" @onclick="ActivateLead" disabled="@isLoading">
+                    Активировать
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (showFailModal)
+    {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Отказ по лиду</h5>
+                        <button type="button" class="btn-close" @onclick="() => showFailModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Комментарий</label>
+                            <textarea @bind="failComment" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="() => showFailModal = false">Отмена</button>
+                        <button class="btn btn-danger" @onclick="FailLead" disabled="@isLoading">
+                            Подтвердить отказ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger mt-3">@error</div>
+    }
+    @if (!string.IsNullOrEmpty(success))
+    {
+        <div class="alert alert-success mt-3">@success</div>
+    }
 }
 
 @code {
     [Parameter] public long Id { get; set; }
     private Lead? lead;
+    private bool isLoading;
+    private string? error;
+    private string? success;
+    private bool showFailModal;
+    private string? failComment;
+
+    private string StatusDisplay => lead?.Status switch
+    {
+        LeadStatus.New => "Новый",
+        LeadStatus.InHand => "В работе",
+        LeadStatus.Qualified => "Квалифицирован",
+        LeadStatus.Unqualified => "Неквалифицирован",
+        LeadStatus.Dublicate => "Дубликат",
+        LeadStatus.ConversationNotStart => "Разговор не состоялся",
+        _ => lead?.Status.ToString() ?? ""
+    };
+
+    private string StatusBadgeClass => lead?.Status switch
+    {
+        LeadStatus.New => "bg-primary",
+        LeadStatus.InHand => "bg-warning text-dark",
+        LeadStatus.Qualified => "bg-success",
+        LeadStatus.Unqualified => "bg-danger",
+        LeadStatus.Dublicate => "bg-secondary",
+        LeadStatus.ConversationNotStart => "bg-dark",
+        _ => "bg-light"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,10 +144,132 @@ else
 
     private async Task Save()
     {
-        if (lead is not null)
+        isLoading = true;
+        error = null;
+        success = null;
+        try
         {
+            if (lead is not null)
+            {
+                await Api.UpdateLeadAsync(Id, lead);
+                success = "Лид сохранен";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task BeginWork()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.BeginLeadAsync(Id);
+            lead = await Api.GetLeadAsync(Id);
+            success = "Статус изменен на \"В работе\"";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task FailLead()
+    {
+        showFailModal = false;
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.FailLeadAsync(Id, failComment);
+            lead = await Api.GetLeadAsync(Id);
+            success = "Статус изменен на \"Неквалифицирован\"";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ConversationNotStart()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.ConversationNotStartAsync(Id);
+            lead = await Api.GetLeadAsync(Id);
+            success = "Статус изменен на \"Разговор не состоялся\"";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task QualifyLead()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            if (lead is null) return;
+            lead.Status = LeadStatus.Qualified;
             await Api.UpdateLeadAsync(Id, lead);
-            Nav.NavigateTo("/leads");
+            lead = await Api.GetLeadAsync(Id);
+            success = "Статус изменен на \"Квалифицирован\"";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ActivateLead()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.ActivateLeadsAsync([Id]);
+            lead = await Api.GetLeadAsync(Id);
+            success = "Лид активирован";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 }
