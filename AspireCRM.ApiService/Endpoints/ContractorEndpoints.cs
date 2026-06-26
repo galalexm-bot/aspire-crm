@@ -34,6 +34,8 @@ public static class ContractorEndpoints
                 .Include(c => c.Contacts)
                 .Include(c => c.Sales)
                 .Include(c => c.Relationships)
+                .Include(c => c.BankAccounts)
+                .Include(c => c.PaymentCards)
                 .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
 
             return contractor is null ? Results.NotFound() : Results.Ok(contractor);
@@ -200,8 +202,148 @@ public static class ContractorEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
+
+        api.MapGet("/{id:long}/bank-accounts", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var accounts = await db.BankAccounts
+                .Where(ba => ba.ContractorId == id && ba.TenantId == tenantService.TenantId.Value && !ba.IsDeleted)
+                .ToListAsync();
+
+            return Results.Ok(accounts);
+        });
+
+        api.MapPost("/{id:long}/bank-accounts", async (long id, BankAccountRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var contractor = await db.Contractors
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
+
+            if (contractor is null) return Results.NotFound();
+
+            var account = new BankAccount
+            {
+                Number = request.Number,
+                BIK = request.BIK,
+                BankName = request.BankName,
+                CorrespondentAccount = request.CorrespondentAccount,
+                Description = request.Description,
+                ContractorId = id,
+                TenantId = tenantService.TenantId.Value
+            };
+            db.BankAccounts.Add(account);
+            await db.SaveChangesAsync();
+            return Results.Created($"/api/contractors/{id}/bank-accounts/{account.Id}", account);
+        });
+
+        api.MapPut("/{id:long}/bank-accounts/{accountId:long}", async (long id, long accountId, BankAccountRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var account = await db.BankAccounts
+                .FirstOrDefaultAsync(ba => ba.Id == accountId && ba.ContractorId == id && ba.TenantId == tenantService.TenantId.Value && !ba.IsDeleted);
+
+            if (account is null) return Results.NotFound();
+
+            account.Number = request.Number;
+            account.BIK = request.BIK;
+            account.BankName = request.BankName;
+            account.CorrespondentAccount = request.CorrespondentAccount;
+            account.Description = request.Description;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
+        api.MapDelete("/{id:long}/bank-accounts/{accountId:long}", async (long id, long accountId, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var account = await db.BankAccounts
+                .FirstOrDefaultAsync(ba => ba.Id == accountId && ba.ContractorId == id && ba.TenantId == tenantService.TenantId.Value && !ba.IsDeleted);
+
+            if (account is null) return Results.NotFound();
+
+            account.IsDeleted = true;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
+        api.MapGet("/{id:long}/payment-cards", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var cards = await db.PaymentCards
+                .Where(pc => pc.ContractorId == id && pc.TenantId == tenantService.TenantId.Value && !pc.IsDeleted)
+                .ToListAsync();
+
+            return Results.Ok(cards);
+        });
+
+        api.MapPost("/{id:long}/payment-cards", async (long id, PaymentCardRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var contractor = await db.Contractors
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
+
+            if (contractor is null) return Results.NotFound();
+
+            var card = new PaymentCard
+            {
+                Number = request.Number,
+                CardholderName = request.CardholderName,
+                Description = request.Description,
+                ContractorId = id,
+                TenantId = tenantService.TenantId.Value
+            };
+            db.PaymentCards.Add(card);
+            await db.SaveChangesAsync();
+            return Results.Created($"/api/contractors/{id}/payment-cards/{card.Id}", card);
+        });
+
+        api.MapPut("/{id:long}/payment-cards/{cardId:long}", async (long id, long cardId, PaymentCardRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var card = await db.PaymentCards
+                .FirstOrDefaultAsync(pc => pc.Id == cardId && pc.ContractorId == id && pc.TenantId == tenantService.TenantId.Value && !pc.IsDeleted);
+
+            if (card is null) return Results.NotFound();
+
+            card.Number = request.Number;
+            card.CardholderName = request.CardholderName;
+            card.Description = request.Description;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
+        api.MapDelete("/{id:long}/payment-cards/{cardId:long}", async (long id, long cardId, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var card = await db.PaymentCards
+                .FirstOrDefaultAsync(pc => pc.Id == cardId && pc.ContractorId == id && pc.TenantId == tenantService.TenantId.Value && !pc.IsDeleted);
+
+            if (card is null) return Results.NotFound();
+
+            card.IsDeleted = true;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
     }
 }
 
 public record AddEmailRequest(string EmailAddress, string? Description);
 public record AddPhoneRequest(string PhoneNumber, string? Description);
+public record BankAccountRequest(string Number, string? BIK, string? BankName, string? CorrespondentAccount, string? Description);
+public record PaymentCardRequest(string Number, string? CardholderName, string? Description);

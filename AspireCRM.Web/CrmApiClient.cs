@@ -66,6 +66,38 @@ public class CrmApiClient(HttpClient http)
     public async Task RemoveContractorPhoneAsync(long contractorId, long phoneId) =>
         await http.DeleteAsync($"/api/contractors/{contractorId}/phones/{phoneId}");
 
+    public async Task<List<BankAccount>> GetBankAccountsAsync(long contractorId) =>
+        await http.GetFromJsonAsync<List<BankAccount>>($"/api/contractors/{contractorId}/bank-accounts") ?? [];
+
+    public async Task<BankAccount> CreateBankAccountAsync(long contractorId, BankAccount account)
+    {
+        var response = await http.PostAsJsonAsync($"/api/contractors/{contractorId}/bank-accounts", account);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<BankAccount>())!;
+    }
+
+    public async Task UpdateBankAccountAsync(long contractorId, long accountId, BankAccount account) =>
+        await http.PutAsJsonAsync($"/api/contractors/{contractorId}/bank-accounts/{accountId}", account);
+
+    public async Task DeleteBankAccountAsync(long contractorId, long accountId) =>
+        await http.DeleteAsync($"/api/contractors/{contractorId}/bank-accounts/{accountId}");
+
+    public async Task<List<PaymentCard>> GetPaymentCardsAsync(long contractorId) =>
+        await http.GetFromJsonAsync<List<PaymentCard>>($"/api/contractors/{contractorId}/payment-cards") ?? [];
+
+    public async Task<PaymentCard> CreatePaymentCardAsync(long contractorId, PaymentCard card)
+    {
+        var response = await http.PostAsJsonAsync($"/api/contractors/{contractorId}/payment-cards", card);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<PaymentCard>())!;
+    }
+
+    public async Task UpdatePaymentCardAsync(long contractorId, long cardId, PaymentCard card) =>
+        await http.PutAsJsonAsync($"/api/contractors/{contractorId}/payment-cards/{cardId}", card);
+
+    public async Task DeletePaymentCardAsync(long contractorId, long cardId) =>
+        await http.DeleteAsync($"/api/contractors/{contractorId}/payment-cards/{cardId}");
+
     public Task<List<Contact>> GetContactsAsync(long? contractorId = null)
     {
         var url = contractorId.HasValue ? $"/api/contacts?contractorId={contractorId}" : "/api/contacts";

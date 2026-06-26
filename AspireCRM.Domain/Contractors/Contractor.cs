@@ -42,4 +42,6 @@ public class Contractor : BaseEntity
     public ICollection<Lead> Leads { get; set; } = new List<Lead>();
     public ICollection<Sale> Sales { get; set; } = new List<Sale>();
     public ICollection<Inpayment> Inpayments { get; set; } = new List<Inpayment>();
+    public ICollection<BankAccount> BankAccounts { get; set; } = new List<BankAccount>();
+    public ICollection<PaymentCard> PaymentCards { get; set; } = new List<PaymentCard>();
 }

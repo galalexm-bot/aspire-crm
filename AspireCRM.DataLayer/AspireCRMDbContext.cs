@@ -38,6 +38,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
     public DbSet<ClientDocumentType> ClientDocumentTypes => Set<ClientDocumentType>();
     public DbSet<LegalForm> LegalForms => Set<LegalForm>();
     public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+    public DbSet<PaymentCard> PaymentCards => Set<PaymentCard>();
 
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<LeadSource> LeadSources => Set<LeadSource>();
@@ -194,6 +196,16 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
 
             e.HasMany(c => c.Categories)
                 .WithMany(c => c.Contractors);
+
+            e.HasMany(c => c.BankAccounts)
+                .WithOne(ba => ba.Contractor)
+                .HasForeignKey(ba => ba.ContractorId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(c => c.PaymentCards)
+                .WithOne(pc => pc.Contractor)
+                .HasForeignKey(pc => pc.ContractorId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ContractorLegal>(e =>
@@ -209,6 +221,22 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
             e.Property(ci => ci.DocumentNumber).HasMaxLength(50);
             e.Property(ci => ci.DocumentIssued).HasMaxLength(512);
             e.Property(ci => ci.DocumentIssueDate).IsRequired();
+        });
+
+        modelBuilder.Entity<BankAccount>(e =>
+        {
+            e.Property(ba => ba.Number).IsRequired().HasMaxLength(100);
+            e.Property(ba => ba.BIK).HasMaxLength(20);
+            e.Property(ba => ba.BankName).HasMaxLength(256);
+            e.Property(ba => ba.CorrespondentAccount).HasMaxLength(100);
+            e.Property(ba => ba.Description).HasMaxLength(4000);
+        });
+
+        modelBuilder.Entity<PaymentCard>(e =>
+        {
+            e.Property(pc => pc.Number).IsRequired().HasMaxLength(50);
+            e.Property(pc => pc.CardholderName).HasMaxLength(256);
+            e.Property(pc => pc.Description).HasMaxLength(4000);
         });
     }
 

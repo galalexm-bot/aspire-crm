@@ -237,6 +237,76 @@ else
             </div>
         </div>
     </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="d-inline">Банковские счета</h5>
+                    <button class="btn btn-sm btn-outline-primary float-end" @onclick="OpenNewBankAccount">+ Добавить</button>
+                </div>
+                <div class="card-body">
+                    @if (showNewBankAccount)
+                    {
+                        <div class="mb-2">
+                            <input @bind="newBankAccount.Number" class="form-control mb-1" placeholder="Номер счета" />
+                            <input @bind="newBankAccount.BIK" class="form-control mb-1" placeholder="БИК" />
+                            <input @bind="newBankAccount.BankName" class="form-control mb-1" placeholder="Название банка" />
+                            <input @bind="newBankAccount.CorrespondentAccount" class="form-control mb-1" placeholder="Корр. счет" />
+                            <input @bind="newBankAccount.Description" class="form-control mb-1" placeholder="Описание" />
+                            <button class="btn btn-success btn-sm me-1" @onclick="AddBankAccount" disabled="@isLoading">Добавить</button>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="CancelNewBankAccount">Отмена</button>
+                        </div>
+                    }
+                    @if (contractor.BankAccounts.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Нет счетов</p>
+                    }
+                    @foreach (var account in contractor.BankAccounts)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span><strong>@account.Number</strong> @(string.IsNullOrEmpty(account.BankName) ? "" : $"- {account.BankName}")</span>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBankAccount(account.Id)" disabled="@isLoading">&times;</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="d-inline">Платежные карты</h5>
+                    <button class="btn btn-sm btn-outline-primary float-end" @onclick="OpenNewPaymentCard">+ Добавить</button>
+                </div>
+                <div class="card-body">
+                    @if (showNewPaymentCard)
+                    {
+                        <div class="mb-2">
+                            <input @bind="newPaymentCard.Number" class="form-control mb-1" placeholder="Номер карты" />
+                            <input @bind="newPaymentCard.CardholderName" class="form-control mb-1" placeholder="Держатель карты" />
+                            <input @bind="newPaymentCard.Description" class="form-control mb-1" placeholder="Описание" />
+                            <button class="btn btn-success btn-sm me-1" @onclick="AddPaymentCard" disabled="@isLoading">Добавить</button>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="CancelNewPaymentCard">Отмена</button>
+                        </div>
+                    }
+                    @if (contractor.PaymentCards.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Нет карт</p>
+                    }
+                    @foreach (var card in contractor.PaymentCards)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span>
+                                <strong>@card.Number</strong>
+                                @(string.IsNullOrEmpty(card.CardholderName) ? "" : $"({card.CardholderName})")
+                            </span>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePaymentCard(card.Id)" disabled="@isLoading">&times;</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -260,6 +330,12 @@ else
     private bool showNewPhone;
     private string newPhoneNumber = "";
     private string? newPhoneDescription;
+
+    private bool showNewBankAccount;
+    private BankAccount newBankAccount = new();
+
+    private bool showNewPaymentCard;
+    private PaymentCard newPaymentCard = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -380,6 +456,114 @@ else
             await Api.RemoveContractorPhoneAsync(Id, phoneId);
             var phone = contractor?.Phones.FirstOrDefault(p => p.Id == phoneId);
             if (phone is not null) contractor?.Phones.Remove(phone);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenNewBankAccount()
+    {
+        newBankAccount = new BankAccount();
+        showNewBankAccount = true;
+    }
+
+    private void CancelNewBankAccount()
+    {
+        showNewBankAccount = false;
+        newBankAccount = new BankAccount();
+    }
+
+    private async Task AddBankAccount()
+    {
+        if (string.IsNullOrWhiteSpace(newBankAccount.Number)) return;
+        isLoading = true;
+        error = null;
+        try
+        {
+            var created = await Api.CreateBankAccountAsync(Id, newBankAccount);
+            contractor?.BankAccounts.Add(created);
+            showNewBankAccount = false;
+            newBankAccount = new BankAccount();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteBankAccount(long accountId)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.DeleteBankAccountAsync(Id, accountId);
+            var account = contractor?.BankAccounts.FirstOrDefault(a => a.Id == accountId);
+            if (account is not null) contractor?.BankAccounts.Remove(account);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenNewPaymentCard()
+    {
+        newPaymentCard = new PaymentCard();
+        showNewPaymentCard = true;
+    }
+
+    private void CancelNewPaymentCard()
+    {
+        showNewPaymentCard = false;
+        newPaymentCard = new PaymentCard();
+    }
+
+    private async Task AddPaymentCard()
+    {
+        if (string.IsNullOrWhiteSpace(newPaymentCard.Number)) return;
+        isLoading = true;
+        error = null;
+        try
+        {
+            var created = await Api.CreatePaymentCardAsync(Id, newPaymentCard);
+            contractor?.PaymentCards.Add(created);
+            showNewPaymentCard = false;
+            newPaymentCard = new PaymentCard();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeletePaymentCard(long cardId)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.DeletePaymentCardAsync(Id, cardId);
+            var card = contractor?.PaymentCards.FirstOrDefault(c => c.Id == cardId);
+            if (card is not null) contractor?.PaymentCards.Remove(card);
         }
         catch (Exception ex)
         {
