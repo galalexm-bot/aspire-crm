@@ -1,0 +1,89 @@
+@page "/login"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject AuthTokenStore TokenStore
+@inject JwtAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Вход в систему</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3>Вход в AspireCRM</h3>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@Model" OnValidSubmit="@HandleLogin">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="Model.Email" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Пароль</label>
+                        <InputText @bind-Value="Model.Password" type="password" class="form-control" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" disabled="@IsLoading">
+                        @(IsLoading ? "Вход..." : "Войти")
+                    </button>
+                </EditForm>
+
+                @if (!string.IsNullOrEmpty(Error))
+                {
+                    <div class="alert alert-danger mt-3">@Error</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel Model { get; set; } = new();
+    private bool IsLoading { get; set; }
+    private string? Error { get; set; }
+
+    private async Task HandleLogin()
+    {
+        IsLoading = true;
+        Error = null;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("https+http://apiservice/api/auth/login", Model);
+            if (!response.IsSuccessStatusCode)
+            {
+                Error = "Неверный email или пароль";
+                return;
+            }
+            var result = await response.Content.ReadFromJsonAsync<LoginResult>();
+            if (result is not null)
+            {
+                await TokenStore.SetTokenAsync(result.Token);
+                AuthStateProvider.NotifyAuthStateChanged();
+                Navigation.NavigateTo("/");
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Ошибка подключения: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Email { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Password { get; set; } = "";
+    }
+
+    private record LoginResult(string Token, long UserId, long TenantId);
+}

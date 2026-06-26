@@ -1,0 +1,60 @@
+@page "/contacts"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+
+<PageTitle>Контакты</PageTitle>
+
+<h1>Контакты</h1>
+
+<p>
+    <a href="/contacts/new" class="btn btn-primary">+ Новый контакт</a>
+</p>
+
+@if (contacts is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>ФИО</th>
+                <th>Должность</th>
+                <th>Приоритет</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var contact in contacts)
+            {
+                <tr>
+                    <td>@contact.Id</td>
+                    <td>@contact.Surname @contact.Firstname</td>
+                    <td>@contact.Position</td>
+                    <td>@contact.Priority</td>
+                    <td>
+                        <a href="/contacts/@contact.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(contact.Id)">Удалить</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Contact>? contacts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        contacts = await Api.GetContactsAsync();
+    }
+
+    private async Task Delete(long id)
+    {
+        await Api.DeleteContactAsync(id);
+        contacts = await Api.GetContactsAsync();
+    }
+}

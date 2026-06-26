@@ -5,13 +5,21 @@ using AspireCRM.Domain.Payments;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Relationships;
 using AspireCRM.Domain.Sales;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.DataLayer;
 
-public class AspireCRMDbContext : DbContext
+public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRole<long>, long>
 {
-    public AspireCRMDbContext(DbContextOptions<AspireCRMDbContext> options) : base(options) { }
+    private readonly ITenantService _tenantService;
+
+    public AspireCRMDbContext(DbContextOptions<AspireCRMDbContext> options, ITenantService tenantService)
+        : base(options)
+    {
+        _tenantService = tenantService;
+    }
 
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Email> Emails => Set<Email>();
@@ -48,12 +56,54 @@ public class AspireCRMDbContext : DbContext
     public DbSet<Relationship> Relationships => Set<Relationship>();
     public DbSet<RelationshipUser> RelationshipUsers => Set<RelationshipUser>();
 
-    private long? _currentTenantId;
+    public DbSet<Tenant> Tenants => Set<Tenant>();
 
-    public void SetTenantId(long tenantId) => _currentTenantId = tenantId;
+    public override int SaveChanges()
+    {
+        ApplyAudit();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyAudit();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyAudit();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ApplyAudit();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void ApplyAudit()
+    {
+        var entries = ChangeTracker.Entries<BaseEntity>();
+        foreach (var entry in entries)
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (_tenantService.TenantId.HasValue)
+                    entry.Entity.TenantId = _tenantService.TenantId.Value;
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+            }
+            if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         ConfigureBaseEntity(modelBuilder);
         ConfigureCategory(modelBuilder);
         ConfigureProduct(modelBuilder);
@@ -64,18 +114,21 @@ public class AspireCRMDbContext : DbContext
         ConfigureInpayment(modelBuilder);
         ConfigureRelationshipHierarchy(modelBuilder);
         ConfigureLookups(modelBuilder);
+        ConfigureTenant(modelBuilder);
+        ConfigureIdentityTables(modelBuilder);
     }
 
-    private static void ConfigureBaseEntity(ModelBuilder modelBuilder)
+    private void ConfigureBaseEntity(ModelBuilder modelBuilder)
     {
         foreach (var entityType in modelBuilder.Model.GetEntityTypes()
             .Where(e => typeof(BaseEntity).IsAssignableFrom(e.ClrType) && e.BaseType is null))
         {
-            modelBuilder.Entity(entityType.ClrType).HasKey(nameof(BaseEntity.Id));
-            modelBuilder.Entity(entityType.ClrType).Property(nameof(BaseEntity.Id)).ValueGeneratedOnAdd();
-            modelBuilder.Entity(entityType.ClrType).Property(nameof(BaseEntity.TenantId)).IsRequired();
-            modelBuilder.Entity(entityType.ClrType).Property(nameof(BaseEntity.CreatedAt)).IsRequired();
-            modelBuilder.Entity(entityType.ClrType).Property(nameof(BaseEntity.CreatedById)).IsRequired();
+            var builder = modelBuilder.Entity(entityType.ClrType);
+            builder.HasKey(nameof(BaseEntity.Id));
+            builder.Property(nameof(BaseEntity.Id)).ValueGeneratedOnAdd();
+            builder.Property(nameof(BaseEntity.TenantId)).IsRequired();
+            builder.Property(nameof(BaseEntity.CreatedAt)).IsRequired();
+            builder.Property(nameof(BaseEntity.CreatedById)).IsRequired();
         }
     }
 
@@ -402,5 +455,28 @@ public class AspireCRMDbContext : DbContext
             e.Property(x => x.SortOrder).IsRequired();
         });
         modelBuilder.Entity<SaleFunnel>(e => e.Property(x => x.Name).IsRequired().HasMaxLength(256));
+    }
+
+    private static void ConfigureIdentityTables(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ApplicationUser>(e =>
+        {
+            e.ToTable("AspNetUsers");
+            e.Property(u => u.TenantId).IsRequired();
+            e.Property(u => u.FirstName).HasMaxLength(256);
+            e.Property(u => u.LastName).HasMaxLength(256);
+        });
+    }
+
+    private static void ConfigureTenant(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Tenant>(e =>
+        {
+            e.ToTable("Tenants");
+            e.HasKey(t => t.Id);
+            e.Property(t => t.Name).IsRequired().HasMaxLength(256);
+            e.Property(t => t.Code).IsRequired().HasMaxLength(50);
+            e.HasIndex(t => t.Code).IsUnique();
+        });
     }
 }

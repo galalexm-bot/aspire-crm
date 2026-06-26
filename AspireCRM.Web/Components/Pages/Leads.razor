@@ -1,0 +1,61 @@
+@page "/leads"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Лиды</PageTitle>
+
+<h1>Лиды</h1>
+
+<p>
+    <a href="/leads/new" class="btn btn-primary">+ Новый лид</a>
+</p>
+
+@if (leads is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Статус</th>
+                <th>Дата создания</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var lead in leads)
+            {
+                <tr>
+                    <td>@lead.Id</td>
+                    <td>@lead.Name</td>
+                    <td>@lead.Status</td>
+                    <td>@lead.CreatedAt.ToShortDateString()</td>
+                    <td>
+                        <a href="/leads/@lead.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(lead.Id)">Удалить</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Lead>? leads;
+
+    protected override async Task OnInitializedAsync()
+    {
+        leads = await Api.GetLeadsAsync();
+    }
+
+    private async Task Delete(long id)
+    {
+        await Api.DeleteLeadAsync(id);
+        leads = await Api.GetLeadsAsync();
+    }
+}

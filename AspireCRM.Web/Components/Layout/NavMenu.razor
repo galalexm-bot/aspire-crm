@@ -1,6 +1,22 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject JwtAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject AuthTokenStore TokenStore
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">AspireCRM</a>
+        <div class="ms-auto">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="text-light me-2">@context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/email")?.Value</span>
+                    <button class="btn btn-outline-light btn-sm" @onclick="Logout">Выйти</button>
+                </Authorized>
+                <NotAuthorized>
+                    <NavLink class="btn btn-outline-light btn-sm" href="login">Войти</NavLink>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
     </div>
 </div>
 
@@ -14,11 +30,30 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="leads">
+                        <span class="bi bi-person-lines-fill" aria-hidden="true"></span> Лиды
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="contractors">
+                        <span class="bi bi-building" aria-hidden="true"></span> Контрагенты
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="contacts">
+                        <span class="bi bi-people" aria-hidden="true"></span> Контакты
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="sales">
+                        <span class="bi bi-cart" aria-hidden="true"></span> Сделки
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="weather">
@@ -27,3 +62,11 @@
         </div>
     </nav>
 </div>
+
+@code {
+    private async Task Logout()
+    {
+        AuthStateProvider.NotifyUserLogout();
+        Navigation.NavigateTo("/");
+    }
+}

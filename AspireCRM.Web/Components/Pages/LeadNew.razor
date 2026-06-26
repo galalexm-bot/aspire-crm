@@ -1,0 +1,44 @@
+@page "/leads/new"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Новый лид</PageTitle>
+
+<h1>Новый лид</h1>
+
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Название</label>
+            <input @bind="lead.Name" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Статус</label>
+            <select @bind="lead.Status" class="form-select">
+                <option value="@LeadStatus.New">Новый</option>
+                <option value="@LeadStatus.InHand">В работе</option>
+                <option value="@LeadStatus.Qualified">Квалифицирован</option>
+                <option value="@LeadStatus.Unqualified">Неквалифицирован</option>
+                <option value="@LeadStatus.Dublicate">Дубликат</option>
+                <option value="@LeadStatus.ConversationNotStart">Разговор не начат</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Описание</label>
+            <textarea @bind="lead.Description" class="form-control" rows="3"></textarea>
+        </div>
+        <button class="btn btn-primary" @onclick="Save">Создать</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/leads")'>Отмена</button>
+    </div>
+</div>
+
+@code {
+    private Lead lead = new() { Name = "", TenantId = 1, CreatedAt = DateTime.UtcNow, CreatedById = 1 };
+
+    private async Task Save()
+    {
+        await Api.CreateLeadAsync(lead);
+        Nav.NavigateTo("/leads");
+    }
+}

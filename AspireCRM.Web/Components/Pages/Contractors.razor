@@ -1,0 +1,60 @@
+@page "/contractors"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+
+<PageTitle>Контрагенты</PageTitle>
+
+<h1>Контрагенты</h1>
+
+<p>
+    <a href="/contractors/new" class="btn btn-primary">+ Новый контрагент</a>
+</p>
+
+@if (contractors is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>ИНН</th>
+                <th>Дата создания</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in contractors)
+            {
+                <tr>
+                    <td>@c.Id</td>
+                    <td>@c.Name</td>
+                    <td>@c.INN</td>
+                    <td>@c.CreatedAt.ToShortDateString()</td>
+                    <td>
+                        <a href="/contractors/@c.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(c.Id)">Удалить</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Contractor>? contractors;
+
+    protected override async Task OnInitializedAsync()
+    {
+        contractors = await Api.GetContractorsAsync();
+    }
+
+    private async Task Delete(long id)
+    {
+        await Api.DeleteContractorAsync(id);
+        contractors = await Api.GetContractorsAsync();
+    }
+}

@@ -10,3 +10,5 @@ AspireCRM.Tests/bin/
 AspireCRM.Tests/obj/
 AspireCRM.Web/bin/
 AspireCRM.Web/obj/
+AspireCRM.DataLayer/bin/
+AspireCRM.Domain/bin/

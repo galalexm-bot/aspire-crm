@@ -1,0 +1,62 @@
+@page "/sales"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+
+<PageTitle>Сделки</PageTitle>
+
+<h1>Сделки</h1>
+
+<p>
+    <a href="/sales/new" class="btn btn-primary">+ Новая сделка</a>
+</p>
+
+@if (sales is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Статус</th>
+                <th>Приоритет</th>
+                <th>Дата старта</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sale in sales)
+            {
+                <tr>
+                    <td>@sale.Id</td>
+                    <td>@sale.Name</td>
+                    <td>@sale.SaleStatus</td>
+                    <td>@sale.Priority</td>
+                    <td>@sale.StartDate.ToShortDateString()</td>
+                    <td>
+                        <a href="/sales/@sale.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(sale.Id)">Удалить</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Sale>? sales;
+
+    protected override async Task OnInitializedAsync()
+    {
+        sales = await Api.GetSalesAsync();
+    }
+
+    private async Task Delete(long id)
+    {
+        await Api.DeleteSaleAsync(id);
+        sales = await Api.GetSalesAsync();
+    }
+}
