@@ -14,7 +14,7 @@
                 <h3>Вход в AspireCRM</h3>
             </div>
             <div class="card-body">
-                <EditForm Model="@Model" OnValidSubmit="@HandleLogin">
+                <EditForm Model="@Model" OnValidSubmit="@HandleLogin" FormName="login">
                     <DataAnnotationsValidator />
                     <ValidationSummary class="text-danger" />
 
