@@ -55,9 +55,22 @@
 
 @code {
     private InpaymentSummary? summary;
+    private bool _initialized;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        summary = await Api.GetInpaymentSummaryAsync();
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                summary = await Api.GetInpaymentSummaryAsync();
+            }
+            catch
+            {
+                summary = new InpaymentSummary();
+            }
+            StateHasChanged();
+        }
     }
 }

@@ -60,9 +60,22 @@
 
 @code {
     private SaleSummary? summary;
+    private bool _initialized;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        summary = await Api.GetSaleSummaryAsync();
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                summary = await Api.GetSaleSummaryAsync();
+            }
+            catch
+            {
+                summary = new SaleSummary();
+            }
+            StateHasChanged();
+        }
     }
 }
