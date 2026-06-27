@@ -44,10 +44,23 @@
 
 @code {
     private List<RelationshipListItem>? relationships;
+    private bool _initialized;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        relationships = await Api.GetUpcomingRelationshipsAsync();
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                relationships = await Api.GetUpcomingRelationshipsAsync();
+            }
+            catch
+            {
+                relationships = [];
+            }
+            StateHasChanged();
+        }
     }
 
     private void NavigateTo(long id)

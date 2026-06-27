@@ -62,9 +62,22 @@
 
 @code {
     private LeadSummary? summary;
+    private bool _initialized;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        summary = await Api.GetLeadSummaryAsync();
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                summary = await Api.GetLeadSummaryAsync();
+            }
+            catch
+            {
+                summary = new LeadSummary();
+            }
+            StateHasChanged();
+        }
     }
 }
