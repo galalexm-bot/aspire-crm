@@ -67,7 +67,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AspireCRMDbContext>();
     db.Database.Migrate();
-    await SeedData.InitializeAsync(db);
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    await SeedData.InitializeAsync(db, userManager);
 
     try
     {

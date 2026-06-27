@@ -2,17 +2,41 @@
 using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
 using AspireCRM.Domain.Sales;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.DataLayer.Data;
 
 public static class SeedData
 {
-    public static async Task InitializeAsync(AspireCRMDbContext context)
+    public static async Task InitializeAsync(AspireCRMDbContext context, UserManager<ApplicationUser>? userManager = null)
     {
         var defaultTenant = await SeedTenant(context);
         await SeedLookups(context, defaultTenant.Id);
+        await SeedDefaultAdmin(context, userManager, defaultTenant.Id);
         await context.SaveChangesAsync();
+    }
+
+    private static async Task SeedDefaultAdmin(AspireCRMDbContext context, UserManager<ApplicationUser>? userManager, long tenantId)
+    {
+        if (userManager is null) return;
+        if (await context.Users.AnyAsync(u => u.TenantId == tenantId)) return;
+
+        var admin = new ApplicationUser
+        {
+            UserName = "admin@aspirecrm.local",
+            Email = "admin@aspirecrm.local",
+            FirstName = "Admin",
+            LastName = "User",
+            TenantId = tenantId,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(admin, "Admin123!");
+        if (!result.Succeeded)
+            throw new InvalidOperationException(
+                $"Failed to seed admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
     }
 
     private static async Task<Tenant> SeedTenant(AspireCRMDbContext context)
