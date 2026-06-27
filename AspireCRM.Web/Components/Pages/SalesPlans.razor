@@ -1,0 +1,374 @@
+@page "/sales-plans"
+@using AspireCRM.Web.Models
+@using AspireCRM.Domain.Sales
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Планы продаж</PageTitle>
+
+<h1>Планы продаж — @currentYear</h1>
+
+<p>
+    <button class="btn btn-outline-secondary me-2" @onclick="PrevYear">◀</button>
+    <button class="btn btn-outline-secondary me-3" @onclick="NextYear">▶</button>
+    <button class="btn btn-primary" @onclick="OpenCreate">+ Добавить план на месяц</button>
+</p>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+@if (plansByMonth is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-12">
+            <table class="table table-bordered">
+                <thead>
+                <tr class="table-primary">
+                    <th style="width:15%">Месяц</th>
+                    <th style="width:20%">План</th>
+                    <th style="width:20%">Факт</th>
+                    <th style="width:10%">Выполнение</th>
+                    <th style="width:25%">Примечание</th>
+                    <th style="width:10%"></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in plansByMonth)
+                {
+                    <tr>
+                        <td><strong>@MonthName(item.Month)</strong></td>
+                        <td>@item.PlannedAmount.ToString("N2")</td>
+                        <td>@(item.ActualAmount?.ToString("N2") ?? "-")</td>
+                        <td>
+                            @if (item.ActualAmount.HasValue && item.PlannedAmount > 0)
+                            {
+                                var pct = item.ActualAmount.Value / item.PlannedAmount * 100;
+                                <div class="progress" style="height:20px;">
+                                    <div class="progress-bar @(pct >= 100 ? "bg-success" : pct >= 75 ? "bg-info" : pct >= 50 ? "bg-warning" : "bg-danger")"
+                                         role="progressbar" style="width:@(Math.Min(pct, 100))%;">
+                                        @pct.ToString("F0")%
+                                    </div>
+                                </div>
+                            }
+                        </td>
+                        <td>@item.Description</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEdit(item)">Изменить</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(item)">Удалить</button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot>
+                <tr class="table-secondary fw-bold">
+                    <td>Итого</td>
+                    <td>@totalPlanned.ToString("N2")</td>
+                    <td>@totalActual.ToString("N2")</td>
+                    <td>
+                        @if (totalPlanned > 0)
+                        {
+                            var totalPct = totalActual / totalPlanned * 100;
+                            <div class="progress" style="height:20px;">
+                                <div class="progress-bar bg-success" role="progressbar"
+                                     style="width:@(Math.Min(totalPct, 100))%;">
+                                    @totalPct.ToString("F0")%
+                                </div>
+                            </div>
+                        }
+                    </td>
+                    <td colspan="2"></td>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Изменить" : "Создать") план на @MonthName(editMonth) @editYear</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">Год</label>
+                            <input class="form-control" type="number" min="2020" max="2100" @bind="editYear" />
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Месяц</label>
+                            <select class="form-select" @bind="editMonth">
+                                <option value="1">Январь</option>
+                                <option value="2">Февраль</option>
+                                <option value="3">Март</option>
+                                <option value="4">Апрель</option>
+                                <option value="5">Май</option>
+                                <option value="6">Июнь</option>
+                                <option value="7">Июль</option>
+                                <option value="8">Август</option>
+                                <option value="9">Сентябрь</option>
+                                <option value="10">Октябрь</option>
+                                <option value="11">Ноябрь</option>
+                                <option value="12">Декабрь</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Плановая сумма</label>
+                        <input class="form-control" type="number" step="0.01" @bind="editPlannedAmount" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Фактическая сумма (необязательно)</label>
+                        <input class="form-control" type="number" step="0.01" @bind="editActualAmount" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Примечание</label>
+                        <textarea class="form-control" rows="2" @bind="editDescription"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="async () => { if (isEditing) { await Update(); } else { await Create(); } }" disabled="@(editPlannedAmount < 0)">
+                        @(isEditing ? "Сохранить" : "Создать")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    Удалить план на @MonthName(deletingMonth) @deletingYear?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-danger" @onclick="Delete">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SalesPlan>? allPlans;
+    private List<SalesPlan> plansByMonth = [];
+    private int currentYear = DateTime.Now.Year;
+    private string? error;
+    private string? success;
+    private bool showModal;
+    private bool isEditing;
+    private SalesPlan? editingPlan;
+    private bool showDeleteConfirm;
+    private long deletingId;
+    private int deletingMonth;
+    private int deletingYear;
+    private int editYear;
+    private int editMonth = 1;
+    private decimal editPlannedAmount;
+    private decimal? editActualAmount;
+    private string editDescription = "";
+
+    private decimal totalPlanned;
+    private decimal totalActual;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            allPlans = await Api.GetSalesPlansAsync();
+            BuildMonthView();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private void BuildMonthView()
+    {
+        var yearPlans = allPlans?.Where(p => p.Year == currentYear).ToList() ?? [];
+        plansByMonth = [];
+        for (int m = 1; m <= 12; m++)
+        {
+            var existing = yearPlans.FirstOrDefault(p => p.Month == m);
+            if (existing is not null)
+            {
+                plansByMonth.Add(existing);
+            }
+            else
+            {
+                plansByMonth.Add(new SalesPlan
+                {
+                    Id = 0,
+                    Year = currentYear,
+                    Month = m,
+                    PlannedAmount = 0,
+                    ActualAmount = null,
+                    Description = null
+                });
+            }
+        }
+        totalPlanned = plansByMonth.Sum(p => p.PlannedAmount);
+        totalActual = plansByMonth.Sum(p => p.ActualAmount ?? 0);
+    }
+
+    private void PrevYear()
+    {
+        currentYear--;
+        BuildMonthView();
+    }
+
+    private void NextYear()
+    {
+        currentYear++;
+        BuildMonthView();
+    }
+
+    private void OpenCreate()
+    {
+        isEditing = false;
+        editingPlan = null;
+        editYear = currentYear;
+        editMonth = 1;
+        editPlannedAmount = 0;
+        editActualAmount = null;
+        editDescription = "";
+        showModal = true;
+    }
+
+    private void OpenEdit(SalesPlan plan)
+    {
+        isEditing = true;
+        editingPlan = plan;
+        editYear = plan.Year;
+        editMonth = plan.Month;
+        editPlannedAmount = plan.PlannedAmount;
+        editActualAmount = plan.ActualAmount;
+        editDescription = plan.Description ?? "";
+        showModal = true;
+    }
+
+    private async Task Create()
+    {
+        try
+        {
+            var request = new CreateSalesPlanRequest
+            {
+                Year = editYear,
+                Month = editMonth,
+                PlannedAmount = editPlannedAmount,
+                ActualAmount = editActualAmount,
+                Description = string.IsNullOrWhiteSpace(editDescription) ? null : editDescription.Trim()
+            };
+            await Api.CreateSalesPlanAsync(request);
+            success = "План создан";
+            showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private async Task Update()
+    {
+        if (editingPlan is null) return;
+        try
+        {
+            var request = new UpdateSalesPlanRequest
+            {
+                Year = editYear,
+                Month = editMonth,
+                PlannedAmount = editPlannedAmount,
+                ActualAmount = editActualAmount,
+                Description = string.IsNullOrWhiteSpace(editDescription) ? null : editDescription.Trim()
+            };
+            await Api.UpdateSalesPlanAsync(editingPlan.Id, request);
+            success = "План обновлён";
+            showModal = false;
+            editingPlan = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void ConfirmDelete(SalesPlan plan)
+    {
+        deletingId = plan.Id;
+        deletingMonth = plan.Month;
+        deletingYear = plan.Year;
+        showDeleteConfirm = true;
+    }
+
+    private async Task Delete()
+    {
+        try
+        {
+            await Api.DeleteSalesPlanAsync(deletingId);
+            success = "План удалён";
+            showDeleteConfirm = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void CloseModals()
+    {
+        showModal = false;
+        showDeleteConfirm = false;
+        editingPlan = null;
+    }
+
+    private string MonthName(int month) => month switch
+    {
+        1 => "Январь",
+        2 => "Февраль",
+        3 => "Март",
+        4 => "Апрель",
+        5 => "Май",
+        6 => "Июнь",
+        7 => "Июль",
+        8 => "Август",
+        9 => "Сентябрь",
+        10 => "Октябрь",
+        11 => "Ноябрь",
+        12 => "Декабрь",
+        _ => "?"
+    };
+}

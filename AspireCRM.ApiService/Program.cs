@@ -101,6 +101,7 @@ app.MapProductEndpoints();
 app.MapCategoryEndpoints();
 app.MapCategoryRuleEndpoints();
 app.MapMarketingActivityEndpoints();
+app.MapSalesPlanEndpoints();
 app.MapRelationshipEndpoints();
 app.MapSaleLookupEndpoints();
 

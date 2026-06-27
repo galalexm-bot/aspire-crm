@@ -62,6 +62,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
 
     public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
 
+    public DbSet<SalesPlan> SalesPlans => Set<SalesPlan>();
+
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
     public override int SaveChanges()
@@ -120,6 +122,7 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         ConfigureInpayment(modelBuilder);
         ConfigureRelationshipHierarchy(modelBuilder);
         ConfigureCategoryRule(modelBuilder);
+        ConfigureSalesPlan(modelBuilder);
         ConfigureMarketing(modelBuilder);
         ConfigureLookups(modelBuilder);
         ConfigureTenant(modelBuilder);
@@ -480,6 +483,18 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
                 .WithMany(r => r.RelationshipUsers)
                 .HasForeignKey(ru => ru.RelationshipId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureSalesPlan(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<SalesPlan>(e =>
+        {
+            e.Property(p => p.Year).IsRequired();
+            e.Property(p => p.Month).IsRequired();
+            e.Property(p => p.PlannedAmount).IsRequired().HasColumnType("decimal(18,2)");
+            e.Property(p => p.ActualAmount).HasColumnType("decimal(18,2)");
+            e.Property(p => p.Description).HasMaxLength(4000);
         });
     }
 

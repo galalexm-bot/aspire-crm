@@ -5,10 +5,10 @@ using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
 using AspireCRM.Domain.Marketing;
+using AspireCRM.Domain.Sales;
 using AspireCRM.Domain.Payments;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Relationships;
-using AspireCRM.Domain.Sales;
 
 namespace AspireCRM.Web;
 
@@ -258,6 +258,22 @@ public class CrmApiClient(HttpClient http)
     public Task DeleteMarketingActivityAsync(long id) => DeleteAsync("/api/marketing-activities", id);
     public async Task<MarketingActivityStats?> GetMarketingActivityStatsAsync(long id) =>
         await http.GetFromJsonAsync<MarketingActivityStats>($"/api/marketing-activities/{id}/stats");
+
+    public Task<List<SalesPlan>> GetSalesPlansAsync() => GetListAsync<SalesPlan>("/api/sales-plans");
+    public Task<SalesPlan?> GetSalesPlanAsync(long id) => GetByIdAsync<SalesPlan>("/api/sales-plans", id);
+    public Task<List<SalesPlan>> GetSalesPlansByYearAsync(int year) => GetListAsync<SalesPlan>($"/api/sales-plans/by-year/{year}");
+    public async Task<SalesPlan> CreateSalesPlanAsync(Models.CreateSalesPlanRequest request)
+    {
+        var response = await http.PostAsJsonAsync("/api/sales-plans", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<SalesPlan>())!;
+    }
+    public async Task UpdateSalesPlanAsync(long id, Models.UpdateSalesPlanRequest request)
+    {
+        var response = await http.PutAsJsonAsync($"/api/sales-plans/{id}", request);
+        response.EnsureSuccessStatusCode();
+    }
+    public Task DeleteSalesPlanAsync(long id) => DeleteAsync("/api/sales-plans", id);
 
     public async Task<RelationshipListResponse?> GetRelationshipsAsync(int page = 1, int pageSize = 20,
         string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null,
