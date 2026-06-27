@@ -210,13 +210,16 @@ public class CrmApiClient(HttpClient http)
     public Task DeleteCategoryAsync(long id) => DeleteAsync("/api/categories", id);
 
     public async Task<RelationshipListResponse?> GetRelationshipsAsync(int page = 1, int pageSize = 20,
-        string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null)
+        string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null,
+        DateTime? startDate = null, DateTime? endDate = null)
     {
         var query = $"/api/relationships?page={page}&pageSize={pageSize}";
         if (!string.IsNullOrEmpty(type)) query += $"&type={type}";
         if (leadId.HasValue) query += $"&leadId={leadId}";
         if (contractorId.HasValue) query += $"&contractorId={contractorId}";
         if (saleId.HasValue) query += $"&saleId={saleId}";
+        if (startDate.HasValue) query += $"&startDate={startDate.Value:yyyy-MM-dd}";
+        if (endDate.HasValue) query += $"&endDate={endDate.Value:yyyy-MM-dd}";
         return await http.GetFromJsonAsync<RelationshipListResponse>(query);
     }
 

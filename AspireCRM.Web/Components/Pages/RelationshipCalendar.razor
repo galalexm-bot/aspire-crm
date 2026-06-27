@@ -1,0 +1,207 @@
+﻿@page "/relationships/calendar"
+@rendermode InteractiveServer
+@using AspireCRM.Web.Models
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Календарь взаимоотношений</PageTitle>
+
+<h1>Календарь взаимоотношений</h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <button class="btn btn-outline-secondary me-2" @onclick="PrevMonth">&laquo; Пред.</button>
+        <button class="btn btn-outline-secondary me-2" @onclick="NextMonth">След. &raquo;</button>
+        <button class="btn btn-outline-primary" @onclick="GoToToday">Сегодня</button>
+    </div>
+    <h3 class="mb-0">@currentMonth.ToString("MMMM yyyy")</h3>
+    <div>
+        <a href="/relationships" class="btn btn-outline-primary">Список</a>
+    </div>
+</div>
+
+<div class="mb-3">
+    <div class="btn-group" role="group">
+        <button class="btn @(filterType == null ? "btn-primary" : "btn-outline-primary")" @onclick="FilterAll">Все</button>
+        <button class="btn @(filterType == "Call" ? "btn-primary" : "btn-outline-primary")" @onclick="FilterCall">Звонки</button>
+        <button class="btn @(filterType == "Mail" ? "btn-primary" : "btn-outline-primary")" @onclick="FilterMail">Письма</button>
+        <button class="btn @(filterType == "Meeting" ? "btn-primary" : "btn-outline-primary")" @onclick="FilterMeeting">Встречи</button>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-bordered calendar-table">
+        <thead>
+            <tr class="text-center">
+                <th class="calendar-header">Пн</th>
+                <th class="calendar-header">Вт</th>
+                <th class="calendar-header">Ср</th>
+                <th class="calendar-header">Чт</th>
+                <th class="calendar-header">Пт</th>
+                <th class="calendar-header">Сб</th>
+                <th class="calendar-header">Вс</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var week in weeks)
+            {
+                <tr>
+                    @foreach (var day in week.Days)
+                    {
+                        <td class="calendar-cell @(day.IsCurrentMonth ? "" : "text-muted bg-light") @(day.IsToday ? "calendar-today" : "")">
+                            <div class="calendar-day-number">@day.Day</div>
+                            @foreach (var evt in day.Events)
+                            {
+                                <div class="calendar-event calendar-event-@evt.TypeClass" @onclick="() => Nav.NavigateTo(evt.Url)" title="@evt.Theme">
+                                    @evt.Theme
+                                </div>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .calendar-table { table-layout: fixed; }
+    .calendar-header { width: 14.28%; background: #f8f9fa; }
+    .calendar-cell { height: 110px; vertical-align: top; padding: 4px; overflow: hidden; cursor: default; }
+    .calendar-today { background: #fff3cd !important; }
+    .calendar-day-number { font-weight: bold; font-size: 0.85rem; margin-bottom: 2px; }
+    .calendar-event { font-size: 0.7rem; padding: 1px 4px; margin-bottom: 1px; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .calendar-event:hover { opacity: 0.85; }
+    .calendar-event-Call { background: #0d6efd; }
+    .calendar-event-Mail { background: #0dcaf0; color: #000; }
+    .calendar-event-Meeting { background: #198754; }
+    .calendar-event-Base { background: #6c757d; }
+</style>
+
+@code {
+    private DateTime currentMonth = new(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private string? filterType;
+    private List<CalendarWeek> weeks = [];
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            List<RelationshipListItem> allItems;
+            var firstVisible = GetFirstVisibleDay();
+            var lastVisible = GetLastVisibleDay();
+            var response = await Api.GetRelationshipsAsync(1, 200, filterType, null, null, null, firstVisible, lastVisible);
+            allItems = response?.Items ?? [];
+            BuildCalendar(allItems);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private DateTime GetFirstVisibleDay()
+    {
+        var firstOfMonth = new DateTime(currentMonth.Year, currentMonth.Month, 1);
+        var dayOfWeek = (int)firstOfMonth.DayOfWeek;
+        var offset = dayOfWeek == 0 ? 6 : dayOfWeek - 1;
+        return firstOfMonth.AddDays(-offset);
+    }
+
+    private DateTime GetLastVisibleDay()
+    {
+        var firstVisible = GetFirstVisibleDay();
+        return firstVisible.AddDays(41);
+    }
+
+    private void BuildCalendar(List<RelationshipListItem> allItems)
+    {
+        weeks = [];
+        var firstVisible = GetFirstVisibleDay();
+        var currentDate = firstVisible;
+
+        for (int w = 0; w < 6; w++)
+        {
+            var week = new CalendarWeek();
+            for (int d = 0; d < 7; d++)
+            {
+                var dayEvents = allItems
+                    .Where(e => currentDate >= e.StartDate.Date && currentDate <= e.EndDate.Date)
+                    .Select(e => new CalendarEvent
+                    {
+                        Theme = e.Theme,
+                        Url = $"/relationships/{e.RelationshipType.ToLowerInvariant()}/{e.Id}",
+                        TypeClass = e.RelationshipType
+                    })
+                    .ToList();
+
+                week.Days.Add(new CalendarDay
+                {
+                    Day = currentDate.Day,
+                    Date = currentDate,
+                    IsCurrentMonth = currentDate.Month == currentMonth.Month,
+                    IsToday = currentDate.Date == DateTime.Now.Date,
+                    Events = dayEvents
+                });
+                currentDate = currentDate.AddDays(1);
+            }
+            weeks.Add(week);
+        }
+    }
+
+    private async Task PrevMonth()
+    {
+        currentMonth = currentMonth.AddMonths(-1);
+        await LoadData();
+    }
+
+    private async Task NextMonth()
+    {
+        currentMonth = currentMonth.AddMonths(1);
+        await LoadData();
+    }
+
+    private async Task GoToToday()
+    {
+        currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        await LoadData();
+    }
+
+    private async Task FilterAll() { filterType = null; await LoadData(); }
+    private async Task FilterCall() { filterType = "Call"; await LoadData(); }
+    private async Task FilterMail() { filterType = "Mail"; await LoadData(); }
+    private async Task FilterMeeting() { filterType = "Meeting"; await LoadData(); }
+
+    private class CalendarWeek
+    {
+        public List<CalendarDay> Days { get; set; } = new();
+    }
+
+    private class CalendarDay
+    {
+        public int Day { get; set; }
+        public DateTime Date { get; set; }
+        public bool IsCurrentMonth { get; set; }
+        public bool IsToday { get; set; }
+        public List<CalendarEvent> Events { get; set; } = new();
+    }
+
+    private class CalendarEvent
+    {
+        public string Theme { get; set; } = "";
+        public string Url { get; set; } = "";
+        public string TypeClass { get; set; } = "";
+    }
+}

@@ -12,7 +12,8 @@ public static class RelationshipEndpoints
         var api = app.MapGroup("/api/relationships");
 
         api.MapGet("/", async (AspireCRMDbContext db, ITenantService tenantService, int page = 1, int pageSize = 20,
-            string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null) =>
+            string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null,
+            DateTime? startDate = null, DateTime? endDate = null) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
@@ -32,6 +33,10 @@ public static class RelationshipEndpoints
                 query = query.Where(r => r.ContractorId == contractorId);
             if (saleId.HasValue)
                 query = query.Where(r => r.SaleId == saleId);
+            if (startDate.HasValue)
+                query = query.Where(r => r.EndDate >= startDate.Value);
+            if (endDate.HasValue)
+                query = query.Where(r => r.StartDate <= endDate.Value);
 
             var totalCount = await query.CountAsync();
 
