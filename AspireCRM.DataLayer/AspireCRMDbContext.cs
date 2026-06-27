@@ -7,6 +7,7 @@ using AspireCRM.Domain.Payments;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Relationships;
 using AspireCRM.Domain.Sales;
+using AspireCRM.Domain.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
     public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
 
     public DbSet<SalesPlan> SalesPlans => Set<SalesPlan>();
+
+    public DbSet<UserCategoryPermission> UserCategoryPermissions => Set<UserCategoryPermission>();
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
@@ -123,6 +126,7 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         ConfigureRelationshipHierarchy(modelBuilder);
         ConfigureCategoryRule(modelBuilder);
         ConfigureSalesPlan(modelBuilder);
+        ConfigureSecurity(modelBuilder);
         ConfigureMarketing(modelBuilder);
         ConfigureLookups(modelBuilder);
         ConfigureTenant(modelBuilder);
@@ -495,6 +499,23 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
             e.Property(p => p.PlannedAmount).IsRequired().HasColumnType("decimal(18,2)");
             e.Property(p => p.ActualAmount).HasColumnType("decimal(18,2)");
             e.Property(p => p.Description).HasMaxLength(4000);
+        });
+    }
+
+    private static void ConfigureSecurity(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserCategoryPermission>(e =>
+        {
+            e.Property(p => p.UserId).IsRequired();
+            e.Property(p => p.CategoryId).IsRequired();
+            e.Property(p => p.PermissionLevel).IsRequired().HasConversion<string>().HasMaxLength(50);
+
+            e.HasOne(p => p.Category)
+                .WithMany()
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(p => new { p.UserId, p.CategoryId }).IsUnique();
         });
     }
 

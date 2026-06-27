@@ -1,0 +1,198 @@
+@page "/security/permissions"
+@using AspireCRM.Web.Models
+@using AspireCRM.Domain.Common
+@using AspireCRM.Domain.Security
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Права доступа к категориям</PageTitle>
+
+<h1>Права доступа к категориям</h1>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+@if (users is null || categories is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Пользователь</label>
+            <select class="form-select" @bind="selectedUserId" @bind:after="OnUserChanged">
+                <option value="0">— Выберите пользователя —</option>
+                @foreach (var u in users.Where(u => u.IsActive))
+                {
+                    <option value="@u.Id">@u.DisplayName</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (selectedUserId > 0)
+    {
+        <table class="table table-bordered">
+            <thead>
+            <tr class="table-primary">
+                <th>Категория</th>
+                <th>Тип</th>
+                <th>Уровень доступа</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var cat in categories)
+            {
+                var state = GetPermission(cat.Id);
+                <tr>
+                    <td>@cat.Name</td>
+                    <td>@(cat.CategoryType == CategoryType.Exclusive ? "Эксклюзив" : "Обычная")</td>
+                    <td>
+                        <select class="form-select" @bind="state.Level" @bind:after="() => OnPermissionChanged(cat.Id, state.Level)">
+                            <option value="@((int)CategoryPermissionLevel.None)">Нет доступа</option>
+                            <option value="@((int)CategoryPermissionLevel.Read)">Чтение</option>
+                            <option value="@((int)CategoryPermissionLevel.Write)">Запись</option>
+                            <option value="@((int)CategoryPermissionLevel.Delete)">Удаление</option>
+                            <option value="@((int)CategoryPermissionLevel.Full)">Полный доступ</option>
+                        </select>
+                    </td>
+                    <td>
+                        @if (state.Level != CategoryPermissionLevel.None && state.HasExisting)
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemovePermission(state.PermissionId)">Удалить</button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<UserInfo>? users;
+    private List<Category>? categories;
+    private List<UserCategoryPermission>? allPermissions;
+    private long selectedUserId;
+    private string? error;
+    private string? success;
+
+    private class PermissionState
+    {
+        public long PermissionId { get; set; }
+        public CategoryPermissionLevel Level { get; set; } = CategoryPermissionLevel.None;
+        public bool HasExisting { get; set; }
+    }
+
+    private Dictionary<long, PermissionState> permissionMap = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            users = await Api.GetSecurityUsersAsync();
+            categories = await Api.GetCategoriesAsync();
+            allPermissions = await Api.GetPermissionsAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private async Task OnUserChanged()
+    {
+        permissionMap.Clear();
+        if (selectedUserId > 0)
+        {
+            try
+            {
+                allPermissions = await Api.GetUserPermissionsAsync(selectedUserId);
+            }
+            catch (Exception ex)
+            {
+                error = $"Ошибка загрузки прав: {ex.Message}";
+            }
+        }
+    }
+
+    private PermissionState GetPermission(long categoryId)
+    {
+        if (permissionMap.TryGetValue(categoryId, out var state))
+            return state;
+
+        state = new PermissionState();
+        var existing = allPermissions?.FirstOrDefault(p => p.CategoryId == categoryId);
+        if (existing is not null)
+        {
+            state.PermissionId = existing.Id;
+            state.Level = existing.PermissionLevel;
+            state.HasExisting = true;
+        }
+        permissionMap[categoryId] = state;
+        return state;
+    }
+
+    private async Task OnPermissionChanged(long categoryId, CategoryPermissionLevel level)
+    {
+        try
+        {
+            if (level == CategoryPermissionLevel.None)
+            {
+                var existing = allPermissions?.FirstOrDefault(p => p.CategoryId == categoryId);
+                if (existing is not null)
+                {
+                    await Api.DeletePermissionAsync(existing.Id);
+                    allPermissions?.Remove(existing);
+                }
+            }
+            else
+            {
+                var created = await Api.SetPermissionAsync(new SetPermissionRequest
+                {
+                    UserId = selectedUserId,
+                    CategoryId = categoryId,
+                    PermissionLevel = level
+                });
+                allPermissions?.RemoveAll(p => p.CategoryId == categoryId);
+                allPermissions?.Add(created);
+            }
+            var state = GetPermission(categoryId);
+            state.Level = level;
+            success = "Права обновлены";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private async Task RemovePermission(long permissionId)
+    {
+        try
+        {
+            await Api.DeletePermissionAsync(permissionId);
+            allPermissions?.RemoveAll(p => p.Id == permissionId);
+            permissionMap.Clear();
+            success = "Права удалены";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+}

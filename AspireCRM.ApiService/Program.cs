@@ -23,6 +23,8 @@ builder.Services.AddDbContext<AspireCRMDbContext>(options => options.UseSqlite(c
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<CategoryRuleService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<long>>(options =>
 {
@@ -102,6 +104,7 @@ app.MapCategoryEndpoints();
 app.MapCategoryRuleEndpoints();
 app.MapMarketingActivityEndpoints();
 app.MapSalesPlanEndpoints();
+app.MapSecurityEndpoints();
 app.MapRelationshipEndpoints();
 app.MapSaleLookupEndpoints();
 

@@ -6,6 +6,7 @@ using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
 using AspireCRM.Domain.Relationships;
 using AspireCRM.Domain.Sales;
+using AspireCRM.Domain.Security;
 
 namespace AspireCRM.ApiService.Endpoints;
 
@@ -29,13 +30,13 @@ public static class LeadEndpoints
         {
             var filter = status.HasValue ? (System.Linq.Expressions.Expression<Func<Lead, bool>>)(l => l.Status == status.Value) : null;
             return Results.Ok(await repo.GetPagedAsync(page, pageSize, filter));
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Read);
 
         api.MapGet("/{id:long}", async (long id, IRepository<Lead> repo) =>
         {
             var lead = await repo.GetByIdAsync(id);
             return lead is null ? Results.NotFound() : Results.Ok(lead);
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Read);
 
         api.MapPost("/", async (Lead lead, IRepository<Lead> repo, HttpContext http, CategoryRuleService ruleService) =>
         {
@@ -46,7 +47,7 @@ public static class LeadEndpoints
             var created = await repo.AddAsync(lead);
             await ruleService.ApplyLeadRules(created);
             return Results.Created($"/api/leads/{created.Id}", created);
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Write);
 
         api.MapPut("/{id:long}", async (long id, Lead lead, IRepository<Lead> repo, HttpContext http, CategoryRuleService ruleService) =>
         {
@@ -56,7 +57,7 @@ public static class LeadEndpoints
             await repo.UpdateAsync(lead);
             await ruleService.ApplyLeadRules(lead);
             return Results.NoContent();
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Write);
 
         api.MapDelete("/{id:long}", async (long id, IRepository<Lead> repo) =>
         {
@@ -64,7 +65,7 @@ public static class LeadEndpoints
             if (lead is null) return Results.NotFound();
             await repo.DeleteAsync(lead);
             return Results.NoContent();
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Delete);
 
         api.MapPost("/{id:long}/begin", async (long id, HttpContext http, IRepository<Lead> repo) =>
         {

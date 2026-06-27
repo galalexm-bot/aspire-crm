@@ -3,6 +3,7 @@ using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
+using AspireCRM.Domain.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.ApiService.Endpoints;
@@ -14,16 +15,16 @@ public static class ContractorEndpoints
         var api = app.MapGroup("/api/contractors");
 
         api.MapGet("/", async (IRepository<Contractor> repo, int page = 1, int pageSize = 20) =>
-            Results.Ok(await repo.GetPagedAsync(page, pageSize)));
+            Results.Ok(await repo.GetPagedAsync(page, pageSize))).RequireCategoryPermission(CategoryPermissionLevel.Read);
 
         api.MapGet("/list", async (IRepository<Contractor> repo) =>
-            Results.Ok(await repo.GetAllAsync()));
+            Results.Ok(await repo.GetAllAsync())).RequireCategoryPermission(CategoryPermissionLevel.Read);
 
         api.MapGet("/{id:long}", async (long id, IRepository<Contractor> repo) =>
         {
             var contractor = await repo.GetByIdAsync(id);
             return contractor is null ? Results.NotFound() : Results.Ok(contractor);
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Read);
 
         api.MapGet("/{id:long}/details", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
         {
@@ -115,7 +116,7 @@ public static class ContractorEndpoints
             await db.SaveChangesAsync();
             await ruleService.ApplyContractorRules(contractor);
             return Results.Created($"/api/contractors/{contractor.Id}", contractor);
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Write);
 
         api.MapPut("/{id:long}", async (long id, UpdateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService, CategoryRuleService ruleService) =>
         {
@@ -221,7 +222,7 @@ public static class ContractorEndpoints
             await db.SaveChangesAsync();
             await ruleService.ApplyContractorRules(existing);
             return Results.NoContent();
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Write);
 
         api.MapDelete("/{id:long}", async (long id, IRepository<Contractor> repo) =>
         {
@@ -229,7 +230,7 @@ public static class ContractorEndpoints
             if (contractor is null) return Results.NotFound();
             await repo.DeleteAsync(contractor);
             return Results.NoContent();
-        });
+        }).RequireCategoryPermission(CategoryPermissionLevel.Delete);
 
         api.MapPost("/{id:long}/emails", async (long id, AddEmailRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
         {

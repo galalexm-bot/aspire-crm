@@ -9,6 +9,7 @@ using AspireCRM.Domain.Sales;
 using AspireCRM.Domain.Payments;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Relationships;
+using AspireCRM.Domain.Security;
 
 namespace AspireCRM.Web;
 
@@ -274,6 +275,18 @@ public class CrmApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
     }
     public Task DeleteSalesPlanAsync(long id) => DeleteAsync("/api/sales-plans", id);
+
+    public Task<List<UserInfo>> GetSecurityUsersAsync() => GetListAsync<UserInfo>("/api/security/users");
+    public Task<List<UserCategoryPermission>> GetPermissionsAsync() => GetListAsync<UserCategoryPermission>("/api/security/permissions");
+    public Task<List<UserCategoryPermission>> GetUserPermissionsAsync(long userId) =>
+        GetListAsync<UserCategoryPermission>($"/api/security/permissions/by-user/{userId}");
+    public async Task<UserCategoryPermission> SetPermissionAsync(SetPermissionRequest request)
+    {
+        var response = await http.PostAsJsonAsync("/api/security/permissions", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<UserCategoryPermission>())!;
+    }
+    public Task DeletePermissionAsync(long id) => DeleteAsync("/api/security/permissions", id);
 
     public async Task<RelationshipListResponse?> GetRelationshipsAsync(int page = 1, int pageSize = 20,
         string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null,
