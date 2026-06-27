@@ -1,5 +1,6 @@
 using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
+using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Sales;
 using Microsoft.EntityFrameworkCore;
@@ -146,7 +147,88 @@ public static class SaleEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
+
+        api.MapPost("/{id:long}/change-stage", async (long id, SaleStageChangeRequest request, HttpContext http,
+            AspireCRMDbContext db, ITenantService tenantService, IRepository<Comment> commentRepo) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var sale = await db.Sales
+                .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantService.TenantId.Value && !s.IsDeleted);
+
+            if (sale is null) return Results.NotFound();
+
+            var stage = await db.SaleStages
+                .FirstOrDefaultAsync(s => s.Id == request.StageId && s.TenantId == tenantService.TenantId.Value && !s.IsDeleted);
+
+            if (stage is null) return Results.NotFound("Этап не найден");
+
+            sale.PreviousStageId = sale.SaleStageId;
+            sale.SaleStageId = request.StageId;
+            sale.StageChangeDate = DateTime.UtcNow;
+            sale.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(request.Comment))
+            {
+                var comment = new Comment
+                {
+                    Text = request.Comment,
+                    AuthorId = GetUserId(http),
+                    CreationDate = DateTime.UtcNow,
+                    TenantId = tenantService.TenantId.Value
+                };
+                await commentRepo.AddAsync(comment);
+                sale.StageChangeCommentId = comment.Id;
+            }
+
+            await db.SaveChangesAsync();
+            return Results.Ok(sale);
+        });
+
+        api.MapPost("/{id:long}/change-status", async (long id, SaleStatusChangeRequest request, HttpContext http,
+            AspireCRMDbContext db, ITenantService tenantService, IRepository<Comment> commentRepo) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var sale = await db.Sales
+                .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantService.TenantId.Value && !s.IsDeleted);
+
+            if (sale is null) return Results.NotFound();
+
+            if (!Enum.TryParse<SaleStatus>(request.Status, out var newStatus))
+                return Results.BadRequest("Некорректный статус");
+
+            sale.SaleStatus = newStatus;
+            sale.StatusChangeDate = DateTime.UtcNow;
+            sale.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(request.Comment))
+            {
+                var comment = new Comment
+                {
+                    Text = request.Comment,
+                    AuthorId = GetUserId(http),
+                    CreationDate = DateTime.UtcNow,
+                    TenantId = tenantService.TenantId.Value
+                };
+                await commentRepo.AddAsync(comment);
+                sale.StatusChangeCommentId = comment.Id;
+            }
+
+            await db.SaveChangesAsync();
+            return Results.Ok(sale);
+        });
+    }
+
+    private static long GetUserId(HttpContext http)
+    {
+        var claim = http.User.FindFirst("userId")?.Value;
+        return long.TryParse(claim, out var userId) ? userId : 0;
     }
 }
 
 public record SaleProductRequest(long ProductId, double Quantity, double Price, double? Discount);
+public record SaleStageChangeRequest(long StageId, string? Comment);
+public record SaleStatusChangeRequest(string Status, string? Comment);

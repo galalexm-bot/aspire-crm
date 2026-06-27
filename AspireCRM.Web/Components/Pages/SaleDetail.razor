@@ -128,6 +128,66 @@ else
     </div>
 
     <div class="card mb-3">
+        <div class="card-header"><h5>Смена этапа и статуса</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Текущий статус</label>
+                    <span class="badge @StatusBadgeClass(sale.SaleStatus) fs-6 d-block text-start p-2">@StatusDisplay(sale.SaleStatus)</span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Текущий этап</label>
+                    <span class="badge bg-info text-dark fs-6 d-block text-start p-2">
+                        @(stages.FirstOrDefault(s => s.Id == sale.SaleStageId)?.Name ?? "Не выбран")
+                    </span>
+                </div>
+            </div>
+
+            <hr />
+            <h6>Сменить этап</h6>
+            <div class="row align-items-end">
+                <div class="col-md-4 mb-2">
+                    <select @bind="selectedStageId" class="form-select">
+                        <option value="">-- Выберите этап --</option>
+                        @foreach (var s in stages)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <input @bind="stageComment" class="form-control" placeholder="Комментарий (необязательно)" />
+                </div>
+                <div class="col-md-2 mb-2">
+                    <button class="btn btn-warning" @onclick="ChangeStage" disabled="@isLoading">Сменить этап</button>
+                </div>
+            </div>
+
+            <hr />
+            <h6>Сменить статус</h6>
+            <div class="row align-items-end">
+                <div class="col-md-4 mb-2">
+                    <input @bind="statusComment" class="form-control" placeholder="Комментарий (необязательно)" />
+                </div>
+                <div class="col-md-6 mb-2">
+                    @if (sale.SaleStatus != SaleStatus.Postponed)
+                    {
+                        <button class="btn btn-warning me-2" @onclick="() => ChangeStatus(SaleStatus.Postponed)" disabled="@isLoading">Отложить</button>
+                    }
+                    @if (sale.SaleStatus != SaleStatus.PositiveClosed)
+                    {
+                        <button class="btn btn-success me-2" @onclick="() => ChangeStatus(SaleStatus.PositiveClosed)" disabled="@isLoading">Закрыть успешно</button>
+                    }
+                    @if (sale.SaleStatus != SaleStatus.NegativeClosed)
+                    {
+                        <button class="btn btn-danger" @onclick="() => ChangeStatus(SaleStatus.NegativeClosed)" disabled="@isLoading">Закрыть неуспешно</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
         <div class="card-header"><h5>Товары</h5></div>
         <div class="card-body">
             @if (saleProducts.Count == 0)
@@ -211,6 +271,10 @@ else
     private List<SaleProduct> saleProducts = [];
     private List<Product> products = [];
     private SaleProduct newProduct = new() { Quantity = 1, ProductId = 0 };
+
+    private long? selectedStageId;
+    private string? stageComment;
+    private string? statusComment;
 
     private string StatusDisplay(SaleStatus status) => status switch
     {
@@ -330,6 +394,67 @@ else
             await Api.DeleteSaleProductAsync(Id, productId);
             await LoadSaleProducts();
             success = "Товар удалён";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ChangeStage()
+    {
+        if (sale is null) return;
+        if (!selectedStageId.HasValue || selectedStageId.Value <= 0)
+        {
+            error = "Выберите этап";
+            return;
+        }
+        if (selectedStageId.Value == sale.SaleStageId)
+        {
+            error = "Сделка уже на этом этапе";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            sale = await Api.ChangeSaleStageAsync(Id, selectedStageId.Value, stageComment);
+            stageComment = null;
+            success = "Этап изменён";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ChangeStatus(SaleStatus newStatus)
+    {
+        if (sale is null) return;
+        if (sale.SaleStatus == newStatus)
+        {
+            error = $"Статус уже \"{StatusDisplay(newStatus)}\"";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            sale = await Api.ChangeSaleStatusAsync(Id, newStatus.ToString(), statusComment);
+            statusComment = null;
+            success = "Статус изменён";
         }
         catch (Exception ex)
         {

@@ -171,6 +171,20 @@ public class CrmApiClient(HttpClient http)
     public Task DeleteSaleProductAsync(long saleId, long productId) =>
         DeleteAsync($"/api/sales/{saleId}/products", productId);
 
+    public async Task<Sale> ChangeSaleStageAsync(long id, long stageId, string? comment = null)
+    {
+        var response = await http.PostAsJsonAsync($"/api/sales/{id}/change-stage", new { stageId, comment });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Sale>())!;
+    }
+
+    public async Task<Sale> ChangeSaleStatusAsync(long id, string status, string? comment = null)
+    {
+        var response = await http.PostAsJsonAsync($"/api/sales/{id}/change-status", new { status, comment });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Sale>())!;
+    }
+
     public Task<List<Category>> GetCategoriesAsync() => GetListAsync<Category>("/api/categories");
     public Task<Category?> GetCategoryAsync(long id) => GetByIdAsync<Category>("/api/categories", id);
     public Task<Category> CreateCategoryAsync(Category c) => CreateAsync("/api/categories", c);
