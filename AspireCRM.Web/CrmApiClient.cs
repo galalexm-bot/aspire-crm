@@ -171,6 +171,9 @@ public class CrmApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<InpaymentSummary?> GetInpaymentSummaryAsync() =>
+        await http.GetFromJsonAsync<InpaymentSummary>("/api/inpayments/summary");
+
     public Task<List<Product>> GetProductsAsync() => GetListAsync<Product>("/api/products");
     public Task<Product?> GetProductAsync(long id) => GetByIdAsync<Product>("/api/products", id);
     public Task<Product> CreateProductAsync(Product p) => CreateAsync("/api/products", p);

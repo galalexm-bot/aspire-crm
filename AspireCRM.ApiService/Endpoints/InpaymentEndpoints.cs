@@ -92,6 +92,36 @@ public static class InpaymentEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
+
+        api.MapGet("/summary", async (AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var now = DateTime.UtcNow;
+
+            var query = db.Inpayments
+                .Where(i => i.TenantId == tenantService.TenantId.Value && !i.IsDeleted);
+
+            var planSum = await query.Where(i => i.Status == InpaymentStatus.InPlan).SumAsync(i => (double?)i.Sum) ?? 0;
+            var receivedSum = await query.Where(i => i.Status == InpaymentStatus.Received).SumAsync(i => (double?)i.Sum) ?? 0;
+            var cancelledSum = await query.Where(i => i.Status == InpaymentStatus.Cancelled).SumAsync(i => (double?)i.Sum) ?? 0;
+            var overdueCount = await query.CountAsync(i => i.Status == InpaymentStatus.InPlan && i.Date < now);
+            var totalCount = await query.CountAsync();
+            var planCount = await query.CountAsync(i => i.Status == InpaymentStatus.InPlan);
+            var receivedCount = await query.CountAsync(i => i.Status == InpaymentStatus.Received);
+
+            return Results.Ok(new InpaymentSummary
+            {
+                PlanSum = planSum,
+                ReceivedSum = receivedSum,
+                CancelledSum = cancelledSum,
+                OverdueCount = overdueCount,
+                TotalCount = totalCount,
+                PlanCount = planCount,
+                ReceivedCount = receivedCount
+            });
+        });
     }
 }
 
