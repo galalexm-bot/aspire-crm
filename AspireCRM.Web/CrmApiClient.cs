@@ -1,3 +1,4 @@
+using AspireCRM.Domain.Attachments;
 using AspireCRM.Web.Models;
 using System.Net.Http.Json;
 using AspireCRM.Domain.CategoryRules;
@@ -412,4 +413,25 @@ public class CrmApiClient(HttpClient http)
 
     public async Task<List<LeadSource>> GetLeadSourcesAsync() =>
         await GetLookupAsync<LeadSource>("lead-sources");
+
+    public Task<List<CrmAttachment>> GetAttachmentsAsync(string entityType, long entityId) =>
+        GetListAsync<CrmAttachment>($"/api/attachments/by-entity/{entityType}/{entityId}");
+
+    public async Task<CrmAttachment> UploadAttachmentAsync(string entityType, long entityId, Stream fileStream, string fileName, string contentType)
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(entityType), "entityType");
+        content.Add(new StringContent(entityId.ToString()), "entityId");
+        content.Add(new StreamContent(fileStream), "file", fileName);
+
+        var response = await http.PostAsync("/api/attachments/upload", content);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CrmAttachment>())!;
+    }
+
+    public Task DeleteAttachmentAsync(long id) =>
+        DeleteAsync("/api/attachments", id);
+
+    public string GetAttachmentDownloadUrl(long id) =>
+        $"/api/attachments/{id}/download";
 }

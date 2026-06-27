@@ -1,3 +1,4 @@
+using AspireCRM.Domain.Attachments;
 using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
@@ -69,6 +70,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
+    public DbSet<CrmAttachment> Attachments => Set<CrmAttachment>();
+
     public override int SaveChanges()
     {
         ApplyAudit();
@@ -131,6 +134,7 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         ConfigureLookups(modelBuilder);
         ConfigureTenant(modelBuilder);
         ConfigureIdentityTables(modelBuilder);
+        ConfigureAttachment(modelBuilder);
     }
 
     private void ConfigureBaseEntity(ModelBuilder modelBuilder)
@@ -608,6 +612,22 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
             e.Property(t => t.Name).IsRequired().HasMaxLength(256);
             e.Property(t => t.Code).IsRequired().HasMaxLength(50);
             e.HasIndex(t => t.Code).IsUnique();
+        });
+    }
+
+    private static void ConfigureAttachment(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CrmAttachment>(e =>
+        {
+            e.Property(a => a.FileName).IsRequired().HasMaxLength(512);
+            e.Property(a => a.OriginalName).IsRequired().HasMaxLength(512);
+            e.Property(a => a.FilePath).IsRequired().HasMaxLength(1024);
+            e.Property(a => a.ContentType).IsRequired().HasMaxLength(256);
+            e.Property(a => a.FileSize).IsRequired();
+            e.Property(a => a.EntityType).IsRequired().HasMaxLength(256);
+            e.Property(a => a.EntityId).IsRequired();
+
+            e.HasIndex(a => new { a.EntityType, a.EntityId });
         });
     }
 }

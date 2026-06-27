@@ -1,0 +1,148 @@
+﻿@rendermode InteractiveServer
+@inject CrmApiClient Api
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="d-inline">Файлы</h5>
+        <button class="btn btn-sm btn-outline-primary float-end" @onclick="() => showUpload = true">+ Загрузить</button>
+    </div>
+    <div class="card-body">
+        @if (showUpload)
+        {
+            <div class="mb-3">
+                <InputFile OnChange="OnFileSelected" class="form-control mb-2" />
+                <button class="btn btn-success btn-sm me-1" @onclick="UploadFile" disabled="@isUploading">
+                    @(isUploading ? "Загрузка..." : "Загрузить")
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="CancelUpload">Отмена</button>
+            </div>
+        }
+
+        @if (attachments is null)
+        {
+            <p class="text-muted mb-0">Загрузка...</p>
+        }
+        else if (attachments.Count == 0)
+        {
+            <p class="text-muted mb-0">Нет файлов</p>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var a in attachments)
+                {
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <a href="@Api.GetAttachmentDownloadUrl(a.Id)" target="_blank" class="text-decoration-none">
+                            @a.OriginalName
+                            <small class="text-muted ms-2">(@FormatSize(a.FileSize))</small>
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteFile(a.Id)" disabled="@isLoading">&times;</button>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger mt-2 mb-0">@error</div>
+        }
+    </div>
+</div>
+
+@using AspireCRM.Domain.Attachments
+
+@code {
+    [Parameter] public string EntityType { get; set; } = string.Empty;
+    [Parameter] public long EntityId { get; set; }
+
+    private List<CrmAttachment>? attachments;
+    private bool isLoading;
+    private bool isUploading;
+    private bool showUpload;
+    private string? error;
+    private IBrowserFile? selectedFile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAttachments();
+    }
+
+    private async Task LoadAttachments()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            attachments = await Api.GetAttachmentsAsync(EntityType, EntityId);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки файлов: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    private async Task UploadFile()
+    {
+        if (selectedFile is null) return;
+        isUploading = true;
+        error = null;
+        try
+        {
+            await using var stream = selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            await Api.UploadAttachmentAsync(EntityType, EntityId, stream, selectedFile.Name, selectedFile.ContentType);
+            showUpload = false;
+            selectedFile = null;
+            await LoadAttachments();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private void CancelUpload()
+    {
+        showUpload = false;
+        selectedFile = null;
+    }
+
+    private async Task DeleteFile(long id)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.DeleteAttachmentAsync(id);
+            attachments?.RemoveAll(a => a.Id == id);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка удаления: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} Б",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} КБ",
+        _ => $"{bytes / (1024.0 * 1024.0):F1} МБ"
+    };
+}
