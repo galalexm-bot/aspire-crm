@@ -97,21 +97,53 @@ else
         <div class="card-body">
             <div class="row align-items-end">
                 <div class="col-md-6 mb-2">
-                    <input @bind="statusComment" class="form-control" placeholder="Комментарий (необязательно)" />
+                    <span class="text-muted">Текущий статус:</span>
+                    <span class="badge @StatusBadgeClass(inpayment.Status) fs-6 ms-2">@StatusDisplay(inpayment.Status)</span>
                 </div>
-                <div class="col-md-6 mb-2">
+                <div class="col-md-6 mb-2 text-end">
                     @if (inpayment.Status != InpaymentStatus.Received)
                     {
-                        <button class="btn btn-success me-2" @onclick="() => ChangeStatus(InpaymentStatus.Received)" disabled="@isLoading">Отметить полученным</button>
+                        <button class="btn btn-success me-2" @onclick="() => ConfirmStatusChange(InpaymentStatus.Received)" disabled="@isLoading">Отметить полученным</button>
                     }
                     @if (inpayment.Status != InpaymentStatus.Cancelled)
                     {
-                        <button class="btn btn-danger me-2" @onclick="() => ChangeStatus(InpaymentStatus.Cancelled)" disabled="@isLoading">Отменить</button>
+                        <button class="btn btn-danger me-2" @onclick="() => ConfirmStatusChange(InpaymentStatus.Cancelled)" disabled="@isLoading">Отменить</button>
                     }
                     @if (inpayment.Status != InpaymentStatus.InPlan)
                     {
-                        <button class="btn btn-info me-2" @onclick="() => ChangeStatus(InpaymentStatus.InPlan)" disabled="@isLoading">Вернуть в план</button>
+                        <button class="btn btn-info me-2" @onclick="() => ConfirmStatusChange(InpaymentStatus.InPlan)" disabled="@isLoading">Вернуть в план</button>
                     }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade @(showConfirmModal ? "show d-block" : "")" tabindex="-1" style="@(showConfirmModal ? "background-color: rgba(0,0,0,0.5)" : "display:none")">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение смены статуса</h5>
+                    <button type="button" class="btn-close" @onclick="CancelStatusChange"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Вы уверены, что хотите сменить статус платежа «@inpayment.Name» на <strong>@StatusDisplay(confirmTarget!.Value)</strong>?</p>
+                    <div class="mb-3">
+                        <label class="form-label">Комментарий к смене статуса</label>
+                        <textarea @bind="confirmComment" class="form-control" rows="2" placeholder="Укажите причину смены статуса"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelStatusChange" disabled="@isLoading">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="ExecuteStatusChange" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span>Обработка...</span>
+                        }
+                        else
+                        {
+                            <span>Подтвердить</span>
+                        }
+                    </button>
                 </div>
             </div>
         </div>
@@ -125,7 +157,10 @@ else
     private bool isLoading;
     private string? error;
     private string? success;
-    private string? statusComment;
+
+    private bool showConfirmModal;
+    private InpaymentStatus? confirmTarget;
+    private string? confirmComment;
 
     private List<Sale> sales = [];
     private List<Contractor> contractors = [];
@@ -173,6 +208,46 @@ else
         _ => "bg-light"
     };
 
+    private void ConfirmStatusChange(InpaymentStatus target)
+    {
+        confirmTarget = target;
+        confirmComment = null;
+        showConfirmModal = true;
+    }
+
+    private void CancelStatusChange()
+    {
+        showConfirmModal = false;
+        confirmTarget = null;
+        confirmComment = null;
+    }
+
+    private async Task ExecuteStatusChange()
+    {
+        if (inpayment is null || !confirmTarget.HasValue) return;
+
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.ChangeInpaymentStatusAsync(Id, confirmTarget.Value.ToString(), confirmComment);
+            inpayment.Status = confirmTarget.Value;
+            showConfirmModal = false;
+            confirmTarget = null;
+            confirmComment = null;
+            success = $"Статус изменён на \"{StatusDisplay(inpayment.Status)}\"";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
     private async Task Save()
     {
         if (inpayment is null) return;
@@ -205,31 +280,6 @@ else
         {
             await Api.UpdateInpaymentAsync(Id, inpayment);
             success = "Платёж сохранён";
-        }
-        catch (Exception ex)
-        {
-            error = $"Ошибка: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    private async Task ChangeStatus(InpaymentStatus newStatus)
-    {
-        if (inpayment is null) return;
-        if (inpayment.Status == newStatus) return;
-
-        isLoading = true;
-        error = null;
-        success = null;
-        try
-        {
-            await Api.ChangeInpaymentStatusAsync(Id, newStatus.ToString(), statusComment);
-            inpayment.Status = newStatus;
-            statusComment = null;
-            success = $"Статус изменён на \"{StatusDisplay(newStatus)}\"";
         }
         catch (Exception ex)
         {

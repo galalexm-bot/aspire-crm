@@ -167,7 +167,7 @@ public class CrmApiClient(HttpClient http)
 
     public async Task ChangeInpaymentStatusAsync(long id, string status, string? comment = null)
     {
-        var response = await http.PutAsJsonAsync($"/api/inpayments/{id}/change-status", new { status, comment });
+        var response = await http.PostAsJsonAsync($"/api/inpayments/{id}/change-status", new { status, comment });
         response.EnsureSuccessStatusCode();
     }
 

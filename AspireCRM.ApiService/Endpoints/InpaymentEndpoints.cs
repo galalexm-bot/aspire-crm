@@ -71,7 +71,7 @@ public static class InpaymentEndpoints
             return Results.NoContent();
         });
 
-        api.MapPut("/{id:long}/change-status", async (long id, InpaymentStatusChangeRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        api.MapPost("/{id:long}/change-status", async (long id, InpaymentStatusChangeRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
