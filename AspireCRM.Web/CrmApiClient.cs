@@ -404,6 +404,12 @@ public class CrmApiClient(HttpClient http)
     public async Task<LeadConversionResult?> ConvertLeadAsync(long id, LeadConversionRequest req) =>
         await http.PostAsJsonAsync<LeadConversionRequest>($"/api/leads/{id}/convert", req).Result.Content.ReadFromJsonAsync<LeadConversionResult>();
 
+    public async Task<LeadSummary?> GetLeadSummaryAsync() =>
+        await http.GetFromJsonAsync<LeadSummary>("/api/leads/summary");
+
+    public async Task<List<RelationshipListItem>> GetUpcomingRelationshipsAsync() =>
+        await http.GetFromJsonAsync<List<RelationshipListItem>>("/api/relationships/upcoming") ?? [];
+
     public async Task BatchAssignAsync(long[] ids, long responsibleId) =>
         await http.PostAsJsonAsync("/api/leads/batch/assign", new { ids, responsibleId });
 

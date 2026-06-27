@@ -1,0 +1,57 @@
+@using AspireCRM.Web.Models
+@inject CrmApiClient Api
+@inject NavigationManager Navigation
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Предстоящие отношения</h5>
+    </div>
+    <div class="card-body">
+        @if (relationships is null)
+        {
+            <p><em>Загрузка...</em></p>
+        }
+        else if (relationships.Count == 0)
+        {
+            <p class="text-muted mb-0">Нет предстоящих отношений</p>
+        }
+        else
+        {
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Тема</th>
+                        <th>Дата</th>
+                        <th>Тип</th>
+                        <th>Контрагент</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in relationships)
+                    {
+                        <tr role="button" class="cursor-pointer" @onclick="() => NavigateTo(item.Id)">
+                            <td>@item.Theme</td>
+                            <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@item.RelationshipType</td>
+                            <td>@item.ContractorName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<RelationshipListItem>? relationships;
+
+    protected override async Task OnInitializedAsync()
+    {
+        relationships = await Api.GetUpcomingRelationshipsAsync();
+    }
+
+    private void NavigateTo(long id)
+    {
+        Navigation.NavigateTo($"/relationships/{id}");
+    }
+}

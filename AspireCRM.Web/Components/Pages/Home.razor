@@ -1,9 +1,23 @@
-﻿@page "/"
+@page "/"
 @rendermode InteractiveServer
 
 <PageTitle>Главная</PageTitle>
 
 <h1>Панель управления</h1>
 
-<SalePortlet />
-<InpaymentPortlet />
+<div class="row">
+    <div class="col-md-6">
+        <LeadPortlet />
+    </div>
+    <div class="col-md-6">
+        <SalePortlet />
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6">
+        <InpaymentPortlet />
+    </div>
+    <div class="col-md-6">
+        <RelationshipsPortlet />
+    </div>
+</div>

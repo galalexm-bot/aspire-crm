@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AspireCRM.ApiService.Services;
+using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
@@ -7,6 +8,7 @@ using AspireCRM.Domain.Leads;
 using AspireCRM.Domain.Relationships;
 using AspireCRM.Domain.Sales;
 using AspireCRM.Domain.Security;
+using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.ApiService.Endpoints;
 
@@ -427,6 +429,28 @@ public static class LeadEndpoints
             await leadRepo.UpdateAsync(lead);
 
             return Results.Ok(new LeadConversionResult(lead.Id, contractor.Id, sale?.Id, relationship?.Id));
+        });
+
+        api.MapGet("/summary", async (AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var query = db.Leads
+                .Where(l => l.TenantId == tenantService.TenantId.Value && !l.IsDeleted);
+
+            var summary = new LeadSummary
+            {
+                TotalNew = await query.CountAsync(l => l.Status == LeadStatus.New),
+                TotalInHand = await query.CountAsync(l => l.Status == LeadStatus.InHand),
+                TotalQualified = await query.CountAsync(l => l.Status == LeadStatus.Qualified),
+                TotalUnqualified = await query.CountAsync(l => l.Status == LeadStatus.Unqualified),
+                TotalDuplicate = await query.CountAsync(l => l.Status == LeadStatus.Dublicate),
+                TotalConversationNotStart = await query.CountAsync(l => l.Status == LeadStatus.ConversationNotStart),
+                TotalLeads = await query.CountAsync()
+            };
+
+            return Results.Ok(summary);
         });
     }
 

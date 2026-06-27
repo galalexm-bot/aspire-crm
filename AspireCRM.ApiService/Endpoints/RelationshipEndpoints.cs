@@ -63,6 +63,41 @@ public static class RelationshipEndpoints
             return Results.Ok(new { items, totalCount, page, pageSize });
         });
 
+        api.MapGet("/upcoming", async (AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var now = DateTime.UtcNow;
+
+            var items = await db.Relationships
+                .Include(r => r.Contractor)
+                .Include(r => r.Sale)
+                .Include(r => r.Lead)
+                .Include(r => r.Contact)
+                .Where(r => r.TenantId == tenantService.TenantId.Value && !r.IsDeleted
+                    && r.EndDate >= now && r.Completed != true)
+                .OrderBy(r => r.EndDate)
+                .Take(5)
+                .Select(r => new RelationshipListItem
+                {
+                    Id = r.Id,
+                    Theme = r.Theme,
+                    Priority = r.Priority.ToString(),
+                    RelationshipType = EF.Property<string>(r, "RelationshipType"),
+                    StartDate = r.StartDate,
+                    EndDate = r.EndDate,
+                    Completed = r.Completed,
+                    ContractorName = r.Contractor != null ? r.Contractor.Name : null,
+                    SaleName = r.Sale != null ? r.Sale.Name : null,
+                    LeadName = r.Lead != null ? r.Lead.Name : null,
+                    ContactName = r.Contact != null ? (r.Contact.Firstname + " " + r.Contact.Middlename + " " + r.Contact.Surname) : null
+                })
+                .ToListAsync();
+
+            return Results.Ok(items);
+        });
+
         api.MapGet("/{id:long}", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
         {
             if (!tenantService.TenantId.HasValue)

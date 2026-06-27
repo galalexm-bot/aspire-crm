@@ -1,52 +1,52 @@
 @using AspireCRM.Web.Models
 @inject CrmApiClient Api
 
-<div class=""card mb-4"">
-    <div class=""card-header"">
-        <h5 class=""card-title mb-0"">Сводка по платежам</h5>
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">РЎРІРѕРґРєР° РїРѕ РїР»Р°С‚РµР¶Р°Рј</h5>
     </div>
-    <div class=""card-body"">
+    <div class="card-body">
         @if (summary is null)
         {
-            <p><em>Загрузка...</em></p>
+            <p><em>Р—Р°РіСЂСѓР·РєР°...</em></p>
         }
         else
         {
-            <div class=""row g-3"">
-                <div class=""col-md-3"">
-                    <div class=""border rounded p-3 text-center bg-light"">
-                        <div class=""fs-3 fw-bold text-primary"">@summary.PlanSum.ToString("N0") ?</div>
-                        <div class=""text-muted"">Запланировано</div>
-                        <div class=""small text-secondary"">@summary.PlanCount платеж(ей)</div>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center bg-light">
+                        <div class="fs-3 fw-bold text-primary">@summary.PlanSum.ToString("N0") в‚Ѕ</div>
+                        <div class="text-muted">РџР»Р°РЅРёСЂСѓРµРјС‹Рµ</div>
+                        <div class="small text-secondary">@summary.PlanCount РїР»Р°С‚РµР¶(РµР№)</div>
                     </div>
                 </div>
-                <div class=""col-md-3"">
-                    <div class=""border rounded p-3 text-center bg-light"">
-                        <div class=""fs-3 fw-bold text-success"">@summary.ReceivedSum.ToString("N0") ?</div>
-                        <div class=""text-muted"">Получено</div>
-                        <div class=""small text-secondary"">@summary.ReceivedCount платеж(ей)</div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center bg-light">
+                        <div class="fs-3 fw-bold text-success">@summary.ReceivedSum.ToString("N0") в‚Ѕ</div>
+                        <div class="text-muted">РџРѕР»СѓС‡РµРЅРѕ</div>
+                        <div class="small text-secondary">@summary.ReceivedCount РїР»Р°С‚РµР¶(РµР№)</div>
                     </div>
                 </div>
-                <div class=""col-md-3"">
-                    <div class=""border rounded p-3 text-center bg-light"">
-                        <div class=""fs-3 fw-bold text-danger"">@summary.CancelledSum.ToString("N0") ?</div>
-                        <div class=""text-muted"">Отменено</div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 text-center bg-light">
+                        <div class="fs-3 fw-bold text-danger">@summary.CancelledSum.ToString("N0") в‚Ѕ</div>
+                        <div class="text-muted">РћС‚РјРµРЅРµРЅРѕ</div>
                     </div>
                 </div>
                 @if (summary.OverdueCount > 0)
                 {
-                    <div class=""col-md-3"">
-                        <div class=""border rounded p-3 text-center border-danger"">
-                            <div class=""fs-3 fw-bold text-danger"">@summary.OverdueCount</div>
-                            <div class=""text-muted"">Просроченные</div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 text-center border-danger">
+                            <div class="fs-3 fw-bold text-danger">@summary.OverdueCount</div>
+                            <div class="text-muted">РџСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Рµ</div>
                         </div>
                     </div>
                 }
             </div>
             <hr />
-            <div class=""row"">
-                <div class=""col"">
-                    <div class=""text-muted"">Всего платежей: <strong>@summary.TotalCount</strong></div>
+            <div class="row">
+                <div class="col">
+                    <div class="text-muted">Р’СЃРµРіРѕ РїР»Р°С‚РµР¶РµР№: <strong>@summary.TotalCount</strong></div>
                 </div>
             </div>
         }
