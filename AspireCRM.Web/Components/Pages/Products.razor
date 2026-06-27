@@ -1,0 +1,530 @@
+@using AspireCRM.Web.Models
+@* ReSharper disable once RouteMissingExclude *@
+@page "/products"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Товары и группы</PageTitle>
+
+<h1>Каталог товаров</h1>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+<div class="row">
+    <div class="col-md-4 border-end">
+        <h5 class="mb-2">Группы</h5>
+        <button class="btn btn-sm btn-outline-primary mb-2" @onclick="OpenCreateGroup">+ Группа</button>
+
+        @if (tree is null)
+        {
+            <p class="text-muted">Загрузка...</p>
+        }
+        else if (tree.Count == 0)
+        {
+            <p class="text-muted">Нет групп</p>
+        }
+        else
+        {
+            <ul class="list-unstyled mb-0">
+                @foreach (var node in tree)
+                {
+                    @RenderTreeNode(node, 0)
+                }
+            </ul>
+        }
+    </div>
+
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">
+                @if (selectedGroupId.HasValue)
+                {
+                    <span>@selectedGroupName</span>
+                }
+                else
+                {
+                    <span class="text-muted">Все товары</span>
+                }
+            </h5>
+            <div>
+                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenCreateProduct()">+ Товар</button>
+                @if (selectedGroupId.HasValue)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectGroup()">Все товары</button>
+                }
+            </div>
+        </div>
+
+        @if (products is null)
+        {
+            <p class="text-muted">Загрузка...</p>
+        }
+        else if (products.Count == 0)
+        {
+            <p class="text-muted">Нет товаров в этой группе</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Цена</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in products)
+                {
+                    <tr>
+                        <td>@p.Name</td>
+                        <td>@(p.Price?.ToString("N2") ?? "-")</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditProduct(p)">Изменить</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(p)">Удалить</button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (showCreateGroupModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Создать группу</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название группы</label>
+                        <input class="form-control" @bind="newGroupName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Родительская группа</label>
+                        <select class="form-select" @bind="newGroupParentId">
+                            <option value="">-- Корень --</option>
+                            @foreach (var g in allGroups)
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateGroup" disabled="@string.IsNullOrWhiteSpace(newGroupName)">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showCreateProductModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Создать товар</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название товара</label>
+                        <input class="form-control" @bind="newProductName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Цена</label>
+                        <input class="form-control" type="number" step="0.01" @bind="newProductPrice" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Группа</label>
+                        <select class="form-select" @bind="newProductParentId">
+                            <option value="">-- Без группы --</option>
+                            @foreach (var g in allGroups)
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateProduct" disabled="@string.IsNullOrWhiteSpace(newProductName)">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showEditProductModal && editingProduct is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Изменить товар</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input class="form-control" @bind="editProductName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Цена</label>
+                        <input class="form-control" type="number" step="0.01" @bind="editProductPrice" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Группа</label>
+                        <select class="form-select" @bind="editProductParentId">
+                            <option value="">-- Без группы --</option>
+                            @foreach (var g in allGroups)
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="UpdateProduct" disabled="@string.IsNullOrWhiteSpace(editProductName)">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    Удалить «@deletingProduct?.Name»?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteProduct">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProductTreeNode>? tree;
+    private List<Product>? products;
+    private List<Product> allProducts = [];
+    private List<Product> allGroups = [];
+
+    private long? selectedGroupId;
+    private string selectedGroupName = "";
+
+    private string? error;
+    private string? success;
+
+    private bool showCreateGroupModal;
+    private string newGroupName = "";
+    private string newGroupParentId = "";
+
+    private bool showCreateProductModal;
+    private string newProductName = "";
+    private double? newProductPrice;
+    private string newProductParentId = "";
+
+    private bool showEditProductModal;
+    private Product? editingProduct;
+    private string editProductName = "";
+    private double? editProductPrice;
+    private string editProductParentId = "";
+
+    private bool showDeleteConfirm;
+    private Product? deletingProduct;
+
+    private HashSet<long> expandedGroups = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            tree = await Api.GetProductTreeAsync();
+            allProducts = await Api.GetProductsAsync();
+            allGroups = allProducts.Where(p => p.IsGroup).ToList();
+            await LoadProductsForGroup();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private async Task LoadProductsForGroup()
+    {
+        if (selectedGroupId.HasValue)
+        {
+            products = allProducts
+                .Where(p => !p.IsGroup && p.ParentId == selectedGroupId.Value)
+                .OrderBy(p => p.Name)
+                .ToList();
+        }
+        else
+        {
+            products = allProducts.Where(p => !p.IsGroup).OrderBy(p => p.Name).ToList();
+        }
+    }
+
+    private void SelectGroup(long? groupId = null, string groupName = "")
+    {
+        selectedGroupId = groupId;
+        selectedGroupName = groupName;
+        _ = LoadProductsForGroup();
+    }
+
+    private async Task ToggleExpand(long groupId)
+    {
+        if (!expandedGroups.Remove(groupId))
+            expandedGroups.Add(groupId);
+    }
+
+    private RenderFragment RenderTreeNode(ProductTreeNode node, int depth) => builder =>
+    {
+        var indent = depth * 20;
+        builder.OpenElement(0, "li");
+        builder.AddAttribute(1, "class", "product-tree-item");
+        builder.AddAttribute(2, "style", $"padding-left: {indent}px;");
+
+        builder.OpenElement(3, "div");
+        builder.AddAttribute(4, "class",
+            $"product-tree-node d-flex align-items-center py-1 px-2 rounded {(selectedGroupId == node.Id ? "bg-primary text-white" : "")}");
+        builder.AddAttribute(5, "onclick",
+            EventCallback.Factory.Create(this, () =>
+            {
+                if (node.IsGroup)
+                {
+                    SelectGroup(node.Id, node.Name);
+                    _ = ToggleExpand(node.Id);
+                }
+            }));
+
+        if (node.IsGroup)
+        {
+            builder.OpenElement(6, "span");
+            builder.AddAttribute(7, "class", "me-1 tree-toggle");
+            builder.AddAttribute(8, "style", "cursor:pointer;width:16px;");
+            builder.AddContent(9, expandedGroups.Contains(node.Id) ? "▼" : "▶");
+            builder.CloseElement();
+
+            builder.OpenElement(10, "span");
+            builder.AddAttribute(11, "class", "me-1");
+            builder.AddContent(12, "📁");
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(13, "span");
+            builder.AddAttribute(14, "class", "me-1");
+            builder.AddAttribute(15, "style", "padding-left:22px;");
+            builder.AddContent(16, "📄");
+            builder.CloseElement();
+        }
+
+        builder.AddContent(17, node.Name);
+
+        if (!node.IsGroup && node.Price.HasValue)
+        {
+            builder.OpenElement(18, "small");
+            builder.AddAttribute(19, "class", "ms-2 text-muted");
+            builder.AddContent(20, $"({node.Price.Value:N2})");
+            builder.CloseElement();
+        }
+
+        if (node.IsGroup)
+        {
+            builder.OpenElement(21, "span");
+            builder.AddAttribute(22, "class", "ms-auto");
+            builder.OpenElement(23, "button");
+            builder.AddAttribute(24, "class", "btn btn-sm btn-outline-danger border-0 py-0");
+            builder.AddAttribute(25, "onclick",
+                EventCallback.Factory.Create(this, async () =>
+                {
+                    var product = allProducts.FirstOrDefault(p => p.Id == node.Id);
+                    if (product is not null)
+                    {
+                        deletingProduct = product;
+                        showDeleteConfirm = true;
+                    }
+                }));
+            builder.AddContent(26, "✕");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+
+        if (node.IsGroup && expandedGroups.Contains(node.Id) && node.Children.Count > 0)
+        {
+            builder.OpenElement(27, "ul");
+            builder.AddAttribute(28, "class", "list-unstyled mb-0");
+            foreach (var child in node.Children)
+            {
+                builder.AddContent(29, RenderTreeNode(child, depth + 1));
+            }
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private void OpenCreateGroup()
+    {
+        newGroupName = "";
+        newGroupParentId = selectedGroupId?.ToString() ?? "";
+        showCreateGroupModal = true;
+    }
+
+    private async Task CreateGroup()
+    {
+        try
+        {
+            long? parentId = string.IsNullOrEmpty(newGroupParentId) ? null : long.Parse(newGroupParentId);
+            await Api.CreateProductAsync(new CreateProductRequest
+            {
+                ParentId = parentId,
+                IsGroup = true,
+                Name = newGroupName.Trim()
+            });
+            success = "Группа создана";
+            showCreateGroupModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void OpenCreateProduct()
+    {
+        newProductName = "";
+        newProductPrice = null;
+        newProductParentId = selectedGroupId?.ToString() ?? "";
+        showCreateProductModal = true;
+    }
+
+    private async Task CreateProduct()
+    {
+        try
+        {
+            long? parentId = string.IsNullOrEmpty(newProductParentId) ? null : long.Parse(newProductParentId);
+            await Api.CreateProductAsync(new CreateProductRequest
+            {
+                ParentId = parentId,
+                IsGroup = false,
+                Name = newProductName.Trim(),
+                Price = newProductPrice
+            });
+            success = "Товар создан";
+            showCreateProductModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void OpenEditProduct(Product product)
+    {
+        editingProduct = product;
+        editProductName = product.Name;
+        editProductPrice = product.Price;
+        editProductParentId = product.ParentId?.ToString() ?? "";
+        showEditProductModal = true;
+    }
+
+    private async Task UpdateProduct()
+    {
+        if (editingProduct is null) return;
+        try
+        {
+            var parentId = string.IsNullOrEmpty(editProductParentId) ? null : (long?)long.Parse(editProductParentId);
+            await Api.UpdateProductAsync(editingProduct.Id, new UpdateProductRequest
+            {
+                Name = editProductName.Trim(),
+                Price = editProductPrice
+            });
+            if (parentId != editingProduct.ParentId)
+            {
+                await Api.MoveProductAsync(editingProduct.Id, parentId);
+            }
+            success = "Товар обновлён";
+            showEditProductModal = false;
+            editingProduct = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void ConfirmDelete(Product product)
+    {
+        deletingProduct = product;
+        showDeleteConfirm = true;
+    }
+
+    private async Task DeleteProduct()
+    {
+        if (deletingProduct is null) return;
+        try
+        {
+            await Api.DeleteProductAsync(deletingProduct.Id);
+            success = "Удалено";
+            showDeleteConfirm = false;
+            deletingProduct = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void CloseModals()
+    {
+        showCreateGroupModal = false;
+        showCreateProductModal = false;
+        showEditProductModal = false;
+        showDeleteConfirm = false;
+        editingProduct = null;
+        deletingProduct = null;
+    }
+
+    private string NodeStyle(ProductTreeNode node) =>
+        selectedGroupId == node.Id ? "background-color: #0d6efd; color: white;" : "";
+}

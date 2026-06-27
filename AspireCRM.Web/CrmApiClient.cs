@@ -176,8 +176,24 @@ public class CrmApiClient(HttpClient http)
 
     public Task<List<Product>> GetProductsAsync() => GetListAsync<Product>("/api/products");
     public Task<Product?> GetProductAsync(long id) => GetByIdAsync<Product>("/api/products", id);
-    public Task<Product> CreateProductAsync(Product p) => CreateAsync("/api/products", p);
-    public Task UpdateProductAsync(long id, Product p) => UpdateAsync("/api/products", id, p);
+    public async Task<List<ProductTreeNode>> GetProductTreeAsync() =>
+        await http.GetFromJsonAsync<List<ProductTreeNode>>("/api/products/tree") ?? [];
+    public async Task<Product> CreateProductAsync(CreateProductRequest request)
+    {
+        var response = await http.PostAsJsonAsync("/api/products", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Product>())!;
+    }
+    public async Task UpdateProductAsync(long id, UpdateProductRequest request)
+    {
+        var response = await http.PutAsJsonAsync($"/api/products/{id}", request);
+        response.EnsureSuccessStatusCode();
+    }
+    public async Task MoveProductAsync(long id, long? parentId)
+    {
+        var response = await http.PutAsJsonAsync($"/api/products/{id}/move", new MoveProductRequest { ParentId = parentId });
+        response.EnsureSuccessStatusCode();
+    }
     public Task DeleteProductAsync(long id) => DeleteAsync("/api/products", id);
 
     public Task<List<SaleProduct>> GetSaleProductsAsync(long saleId) =>
