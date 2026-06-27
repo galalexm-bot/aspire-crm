@@ -220,6 +220,30 @@ public static class SaleEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(sale);
         });
+
+        api.MapGet("/summary", async (AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var sales = db.Sales
+                .Where(s => s.TenantId == tenantService.TenantId.Value && !s.IsDeleted);
+
+            var now = DateTime.UtcNow;
+
+            var summary = new SaleSummary
+            {
+                TotalActive = await sales.CountAsync(s => s.SaleStatus == SaleStatus.Active),
+                TotalPostponed = await sales.CountAsync(s => s.SaleStatus == SaleStatus.Postponed),
+                TotalPositiveClosed = await sales.CountAsync(s => s.SaleStatus == SaleStatus.PositiveClosed),
+                TotalNegativeClosed = await sales.CountAsync(s => s.SaleStatus == SaleStatus.NegativeClosed),
+                TotalSalesVolume = await sales.SumAsync(s => s.SalesVolume ?? 0),
+                ActiveSalesVolume = await sales.Where(s => s.SaleStatus == SaleStatus.Active).SumAsync(s => s.SalesVolume ?? 0),
+                OverdueCount = await sales.CountAsync(s => s.SaleStatus == SaleStatus.Active && s.EndDate != null && s.EndDate < now)
+            };
+
+            return Results.Ok(summary);
+        });
     }
 
     private static long GetUserId(HttpContext http)
@@ -232,3 +256,13 @@ public static class SaleEndpoints
 public record SaleProductRequest(long ProductId, double Quantity, double Price, double? Discount);
 public record SaleStageChangeRequest(long StageId, string? Comment);
 public record SaleStatusChangeRequest(string Status, string? Comment);
+public record SaleSummary
+{
+    public int TotalActive { get; init; }
+    public int TotalPostponed { get; init; }
+    public int TotalPositiveClosed { get; init; }
+    public int TotalNegativeClosed { get; init; }
+    public double TotalSalesVolume { get; init; }
+    public double ActiveSalesVolume { get; init; }
+    public int OverdueCount { get; init; }
+}

@@ -145,6 +145,9 @@ public class CrmApiClient(HttpClient http)
     public Task UpdateSaleAsync(long id, Sale s) => UpdateAsync("/api/sales", id, s);
     public Task DeleteSaleAsync(long id) => DeleteAsync("/api/sales", id);
 
+    public async Task<SaleSummary?> GetSaleSummaryAsync() =>
+        await http.GetFromJsonAsync<SaleSummary>("/api/sales/summary");
+
     public Task<List<Inpayment>> GetInpaymentsAsync(long? saleId = null)
     {
         var url = saleId.HasValue ? $"/api/inpayments?saleId={saleId}" : "/api/inpayments";
