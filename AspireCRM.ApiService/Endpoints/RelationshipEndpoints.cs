@@ -177,6 +177,69 @@ public static class RelationshipEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
+
+        // RelationshipUser endpoints
+        api.MapGet("/{relationshipId:long}/users", async (long relationshipId, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var relationship = await db.Relationships
+                .FirstOrDefaultAsync(r => r.Id == relationshipId && r.TenantId == tenantService.TenantId.Value && !r.IsDeleted);
+
+            if (relationship is null) return Results.NotFound();
+
+            var users = await db.RelationshipUsers
+                .Where(ru => ru.RelationshipId == relationshipId && !ru.IsDeleted)
+                .ToListAsync();
+
+            return Results.Ok(users);
+        });
+
+        api.MapPost("/{relationshipId:long}/users", async (long relationshipId, AddRelationshipUserRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var relationship = await db.Relationships
+                .FirstOrDefaultAsync(r => r.Id == relationshipId && r.TenantId == tenantService.TenantId.Value && !r.IsDeleted);
+
+            if (relationship is null) return Results.NotFound();
+
+            var existing = await db.RelationshipUsers
+                .FirstOrDefaultAsync(ru => ru.RelationshipId == relationshipId && ru.UserId == request.UserId && !ru.IsDeleted);
+
+            if (existing is not null)
+                return Results.Conflict("Пользователь уже добавлен как участник");
+
+            var relationshipUser = new RelationshipUser
+            {
+                RelationshipId = relationshipId,
+                UserId = request.UserId,
+                Status = request.Status,
+                TenantId = tenantService.TenantId.Value
+            };
+
+            db.RelationshipUsers.Add(relationshipUser);
+            await db.SaveChangesAsync();
+
+            return Results.Created($"/api/relationships/{relationshipId}/users/{relationshipUser.Id}", relationshipUser);
+        });
+
+        api.MapDelete("/{relationshipId:long}/users/{userId:long}", async (long relationshipId, long userId, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var relationshipUser = await db.RelationshipUsers
+                .FirstOrDefaultAsync(ru => ru.RelationshipId == relationshipId && ru.UserId == userId && !ru.IsDeleted);
+
+            if (relationshipUser is null) return Results.NotFound();
+
+            relationshipUser.IsDeleted = true;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
     }
 }
 
@@ -227,4 +290,10 @@ public class UpdateRelationshipRequest
     public string? CallType { get; set; }
     public string? Place { get; set; }
     public bool TimeNotSet { get; set; }
+}
+
+public class AddRelationshipUserRequest
+{
+    public long UserId { get; set; }
+    public RelationshipUserStatus Status { get; set; }
 }

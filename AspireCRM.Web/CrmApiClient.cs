@@ -248,6 +248,22 @@ public class CrmApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<List<RelationshipUser>> GetRelationshipUsersAsync(long relationshipId) =>
+        await http.GetFromJsonAsync<List<RelationshipUser>>($"/api/relationships/{relationshipId}/users") ?? [];
+
+    public async Task<RelationshipUser> AddRelationshipUserAsync(long relationshipId, long userId, RelationshipUserStatus status)
+    {
+        var response = await http.PostAsJsonAsync($"/api/relationships/{relationshipId}/users", new { userId, status });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<RelationshipUser>())!;
+    }
+
+    public async Task RemoveRelationshipUserAsync(long relationshipId, long userId)
+    {
+        var response = await http.DeleteAsync($"/api/relationships/{relationshipId}/users/{userId}");
+        response.EnsureSuccessStatusCode();
+    }
+
     public Task<List<T>> GetLookupAsync<T>(string name) => GetListAsync<T>($"/api/lookups/{name}");
 
     public Task<List<SaleFunnel>> GetSaleFunnelsAsync() => GetListAsync<SaleFunnel>("/api/sale-funnels");

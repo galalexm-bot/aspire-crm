@@ -1,0 +1,147 @@
+﻿@rendermode InteractiveServer
+@using AspireCRM.Web.Models
+@inject CrmApiClient Api
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="card mb-3">
+    <div class="card-header"><h5>Участники</h5></div>
+    <div class="card-body">
+        @if (relationshipUsers.Count == 0)
+        {
+            <p class="text-muted">Нет участников</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Пользователь</th>
+                        <th>Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ru in relationshipUsers)
+                    {
+                        var user = users.FirstOrDefault(u => u.Id == ru.UserId);
+                        <tr>
+                            <td>@(user?.FirstName ?? "???") @(user?.LastName ?? "")</td>
+                            <td>@GetStatusText(ru.Status)</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" @onclick='() => Remove(ru.UserId)' disabled="@isLoading">Удалить</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <hr />
+        <h6>Добавить участника</h6>
+        <div class="row">
+            <div class="col-md-5 mb-2">
+                <select @bind="newUserId" class="form-select">
+                    <option value="0">-- Выберите пользователя --</option>
+                    @foreach (var u in availableUsers)
+                    {
+                        <option value="@u.Id">@u.FirstName @u.LastName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <select @bind="newStatus" class="form-select">
+                    <option value="Participant">Участник</option>
+                    <option value="InfromTo">Наблюдатель</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-2">
+                <button class="btn btn-primary" @onclick="Add" disabled="@(isLoading || newUserId == 0)">Добавить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public long RelationshipId { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<RelationshipUser> relationshipUsers = [];
+    private List<UserDto> users = [];
+    private long newUserId;
+    private RelationshipUserStatus newStatus = RelationshipUserStatus.Participant;
+    private bool isLoading;
+    private string? error;
+
+    private List<UserDto> availableUsers => users.Where(u => !relationshipUsers.Any(ru => ru.UserId == u.Id)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            users = await Api.GetUsersAsync();
+            relationshipUsers = await Api.GetRelationshipUsersAsync(RelationshipId);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private async Task Add()
+    {
+        if (newUserId == 0) return;
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.AddRelationshipUserAsync(RelationshipId, newUserId, newStatus);
+            newUserId = 0;
+            await LoadData();
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Remove(long userId)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.RemoveRelationshipUserAsync(RelationshipId, userId);
+            await LoadData();
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string GetStatusText(RelationshipUserStatus status) => status switch
+    {
+        RelationshipUserStatus.Participant => "Участник",
+        RelationshipUserStatus.InfromTo => "Наблюдатель",
+        _ => status.ToString()
+    };
+}

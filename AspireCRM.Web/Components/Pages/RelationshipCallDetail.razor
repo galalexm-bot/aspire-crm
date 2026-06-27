@@ -120,6 +120,8 @@ else
                 <button class="btn btn-danger" @onclick="DeleteItem" disabled="@isLoading">Удалить</button>
             </div>
         </div>
+
+        <RelationshipUsersComponent RelationshipId="Id!.Value" />
     }
 }
 
