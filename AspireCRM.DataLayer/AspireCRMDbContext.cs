@@ -1,3 +1,4 @@
+using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
@@ -58,6 +59,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
     public DbSet<Relationship> Relationships => Set<Relationship>();
     public DbSet<RelationshipUser> RelationshipUsers => Set<RelationshipUser>();
 
+    public DbSet<CategoryRule> CategoryRules => Set<CategoryRule>();
+
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
     public override int SaveChanges()
@@ -115,6 +118,7 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         ConfigureSale(modelBuilder);
         ConfigureInpayment(modelBuilder);
         ConfigureRelationshipHierarchy(modelBuilder);
+        ConfigureCategoryRule(modelBuilder);
         ConfigureLookups(modelBuilder);
         ConfigureTenant(modelBuilder);
         ConfigureIdentityTables(modelBuilder);
@@ -140,6 +144,26 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         {
             e.Property(c => c.Name).IsRequired().HasMaxLength(256);
             e.Property(c => c.CategoryType).IsRequired().HasConversion<string>().HasMaxLength(50);
+        });
+    }
+
+    private static void ConfigureCategoryRule(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CategoryRule>(e =>
+        {
+            e.Property(r => r.Name).IsRequired().HasMaxLength(256);
+            e.Property(r => r.TargetEntity).IsRequired().HasConversion<string>().HasMaxLength(50);
+            e.Property(r => r.ConditionField).IsRequired().HasMaxLength(100);
+            e.Property(r => r.Operator).IsRequired().HasConversion<string>().HasMaxLength(50);
+            e.Property(r => r.ConditionValue).IsRequired().HasMaxLength(500);
+            e.Property(r => r.SortOrder).IsRequired();
+            e.Property(r => r.StopOnMatch).IsRequired();
+            e.Property(r => r.IsEnabled).IsRequired();
+
+            e.HasOne(r => r.Category)
+                .WithMany()
+                .HasForeignKey(r => r.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

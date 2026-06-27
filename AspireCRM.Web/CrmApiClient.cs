@@ -1,5 +1,6 @@
 using AspireCRM.Web.Models;
 using System.Net.Http.Json;
+using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
@@ -224,6 +225,21 @@ public class CrmApiClient(HttpClient http)
     public Task<Category> CreateCategoryAsync(Category c) => CreateAsync("/api/categories", c);
     public Task UpdateCategoryAsync(long id, Category c) => UpdateAsync("/api/categories", id, c);
     public Task DeleteCategoryAsync(long id) => DeleteAsync("/api/categories", id);
+
+    public Task<List<CategoryRule>> GetCategoryRulesAsync() => GetListAsync<CategoryRule>("/api/category-rules");
+    public Task<CategoryRule?> GetCategoryRuleAsync(long id) => GetByIdAsync<CategoryRule>("/api/category-rules", id);
+    public async Task<CategoryRule> CreateCategoryRuleAsync(CreateCategoryRuleRequest request)
+    {
+        var response = await http.PostAsJsonAsync("/api/category-rules", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CategoryRule>())!;
+    }
+    public async Task UpdateCategoryRuleAsync(long id, UpdateCategoryRuleRequest request)
+    {
+        var response = await http.PutAsJsonAsync($"/api/category-rules/{id}", request);
+        response.EnsureSuccessStatusCode();
+    }
+    public Task DeleteCategoryRuleAsync(long id) => DeleteAsync("/api/category-rules", id);
 
     public async Task<RelationshipListResponse?> GetRelationshipsAsync(int page = 1, int pageSize = 20,
         string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null,

@@ -1,5 +1,6 @@
 using System.Text;
 using AspireCRM.ApiService.Endpoints;
+using AspireCRM.ApiService.Services;
 using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Data;
 using AspireCRM.DataLayer.Repositories;
@@ -21,6 +22,7 @@ builder.Services.AddDbContext<AspireCRMDbContext>(options => options.UseSqlite(c
 
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(BaseRepository<>));
+builder.Services.AddScoped<CategoryRuleService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<long>>(options =>
 {
@@ -97,6 +99,7 @@ app.MapSaleEndpoints();
 app.MapInpaymentEndpoints();
 app.MapProductEndpoints();
 app.MapCategoryEndpoints();
+app.MapCategoryRuleEndpoints();
 app.MapRelationshipEndpoints();
 app.MapSaleLookupEndpoints();
 

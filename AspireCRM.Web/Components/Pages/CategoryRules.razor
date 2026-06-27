@@ -1,0 +1,349 @@
+@page "/category-rules"
+@using AspireCRM.Web.Models
+@using AspireCRM.Domain.CategoryRules
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Правила категорий</PageTitle>
+
+<h1>Автоматические правила</h1>
+
+<p>
+    <button class="btn btn-primary" @onclick="OpenCreate">+ Новое правило</button>
+    <a href="/categories" class="btn btn-outline-secondary ms-2">Категории</a>
+</p>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+@if (rules is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (rules.Count == 0)
+{
+    <p class="text-muted">Нет правил. Создайте правило для автоматического назначения категорий лидам и контрагентам.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Приоритет</th>
+            <th>Название</th>
+            <th>Объект</th>
+            <th>Условие</th>
+            <th>Категория</th>
+            <th>Остановить</th>
+            <th>Вкл</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var r in rules)
+        {
+            <tr class="@(r.IsEnabled ? "" : "table-secondary")">
+                <td>@r.SortOrder</td>
+                <td>@r.Name</td>
+                <td>@TargetDisplay(r.TargetEntity)</td>
+                <td>@r.ConditionField @OperatorDisplay(r.Operator) «@r.ConditionValue»</td>
+                <td>@(categories.FirstOrDefault(c => c.Id == r.CategoryId)?.Name ?? r.CategoryId.ToString())</td>
+                <td>@(r.StopOnMatch ? "Да" : "")</td>
+                <td>@(r.IsEnabled ? "Да" : "Нет")</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEdit(r)">Изменить</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(r)">Удалить</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Изменить" : "Создать") правило</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название правила</label>
+                        <input class="form-control" @bind="editName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Объект</label>
+                        <select class="form-select" @bind="editTargetEntity">
+                            <option value="Lead">Лид</option>
+                            <option value="Contractor">Контрагент</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Поле условия</label>
+                        <select class="form-select" @bind="editConditionField">
+                            @if (editTargetEntity == "Lead")
+                            {
+                                <option value="Name">Название</option>
+                                <option value="Description">Описание</option>
+                            }
+                            else
+                            {
+                                <option value="Name">Название</option>
+                                <option value="Description">Описание</option>
+                                <option value="INN">ИНН</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Оператор</label>
+                        <select class="form-select" @bind="editOperator">
+                            <option value="Contains">Содержит</option>
+                            <option value="Equals">Равно</option>
+                            <option value="StartsWith">Начинается с</option>
+                            <option value="EndsWith">Заканчивается на</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Значение</label>
+                        <input class="form-control" @bind="editConditionValue" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Категория</label>
+                        <select class="form-select" @bind="editCategoryId">
+                            <option value="0">-- Выберите категорию --</option>
+                            @foreach (var cat in categories)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Приоритет (порядок выполнения)</label>
+                        <input class="form-control" type="number" @bind="editSortOrder" />
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" @bind="editStopOnMatch" id="stopOnMatch" />
+                        <label class="form-check-label" for="stopOnMatch">Остановить обработку при совпадении</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" @bind="editIsEnabled" id="isEnabled" />
+                        <label class="form-check-label" for="isEnabled">Правило включено</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="async () => { if (isEditing) { await Update(); } else { await Create(); } }" disabled="@(string.IsNullOrWhiteSpace(editName) || editCategoryId == 0)">
+                        @(isEditing ? "Сохранить" : "Создать")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    Удалить правило «@deletingRule?.Name»?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-danger" @onclick="Delete">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CategoryRule>? rules;
+    private List<Category> categories = [];
+    private string? error;
+    private string? success;
+
+    private bool showModal;
+    private bool isEditing;
+    private CategoryRule? editingRule;
+    private bool showDeleteConfirm;
+    private CategoryRule? deletingRule;
+
+    private string editName = "";
+    private string editTargetEntity = "Lead";
+    private string editConditionField = "Name";
+    private string editOperator = "Contains";
+    private string editConditionValue = "";
+    private long editCategoryId;
+    private int editSortOrder;
+    private bool editStopOnMatch;
+    private bool editIsEnabled = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            rules = await Api.GetCategoryRulesAsync();
+            categories = await Api.GetCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private void OpenCreate()
+    {
+        isEditing = false;
+        editingRule = null;
+        editName = "";
+        editTargetEntity = "Lead";
+        editConditionField = "Name";
+        editOperator = "Contains";
+        editConditionValue = "";
+        editCategoryId = 0;
+        editSortOrder = (rules?.Count ?? 0) + 1;
+        editStopOnMatch = false;
+        editIsEnabled = true;
+        showModal = true;
+    }
+
+    private void OpenEdit(CategoryRule rule)
+    {
+        isEditing = true;
+        editingRule = rule;
+        editName = rule.Name;
+        editTargetEntity = rule.TargetEntity.ToString();
+        editConditionField = rule.ConditionField;
+        editOperator = rule.Operator.ToString();
+        editConditionValue = rule.ConditionValue;
+        editCategoryId = rule.CategoryId;
+        editSortOrder = rule.SortOrder;
+        editStopOnMatch = rule.StopOnMatch;
+        editIsEnabled = rule.IsEnabled;
+        showModal = true;
+    }
+
+    private async Task Create()
+    {
+        try
+        {
+            var request = new CreateCategoryRuleRequest
+            {
+                Name = editName.Trim(),
+                TargetEntity = Enum.Parse<RuleTargetEntity>(editTargetEntity),
+                ConditionField = editConditionField,
+                Operator = Enum.Parse<RuleOperator>(editOperator),
+                ConditionValue = editConditionValue.Trim(),
+                CategoryId = editCategoryId,
+                SortOrder = editSortOrder,
+                StopOnMatch = editStopOnMatch,
+                IsEnabled = editIsEnabled
+            };
+            await Api.CreateCategoryRuleAsync(request);
+            success = "Правило создано";
+            showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private async Task Update()
+    {
+        if (editingRule is null) return;
+        try
+        {
+            var request = new UpdateCategoryRuleRequest
+            {
+                Name = editName.Trim(),
+                TargetEntity = Enum.Parse<RuleTargetEntity>(editTargetEntity),
+                ConditionField = editConditionField,
+                Operator = Enum.Parse<RuleOperator>(editOperator),
+                ConditionValue = editConditionValue.Trim(),
+                CategoryId = editCategoryId,
+                SortOrder = editSortOrder,
+                StopOnMatch = editStopOnMatch,
+                IsEnabled = editIsEnabled
+            };
+            await Api.UpdateCategoryRuleAsync(editingRule.Id, request);
+            success = "Правило обновлено";
+            showModal = false;
+            editingRule = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void ConfirmDelete(CategoryRule rule)
+    {
+        deletingRule = rule;
+        showDeleteConfirm = true;
+    }
+
+    private async Task Delete()
+    {
+        if (deletingRule is null) return;
+        try
+        {
+            await Api.DeleteCategoryRuleAsync(deletingRule.Id);
+            success = "Правило удалено";
+            showDeleteConfirm = false;
+            deletingRule = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void CloseModals()
+    {
+        showModal = false;
+        showDeleteConfirm = false;
+        editingRule = null;
+        deletingRule = null;
+    }
+
+    private string TargetDisplay(RuleTargetEntity target) => target switch
+    {
+        RuleTargetEntity.Lead => "Лид",
+        RuleTargetEntity.Contractor => "Контрагент",
+        _ => target.ToString()
+    };
+
+    private string OperatorDisplay(RuleOperator op) => op switch
+    {
+        RuleOperator.Contains => "содержит",
+        RuleOperator.Equals => "=",
+        RuleOperator.StartsWith => "начинается с",
+        RuleOperator.EndsWith => "заканчивается на",
+        _ => op.ToString()
+    };
+}

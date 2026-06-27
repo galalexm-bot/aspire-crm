@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AspireCRM.ApiService.Services;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
@@ -36,22 +37,24 @@ public static class LeadEndpoints
             return lead is null ? Results.NotFound() : Results.Ok(lead);
         });
 
-        api.MapPost("/", async (Lead lead, IRepository<Lead> repo, HttpContext http) =>
+        api.MapPost("/", async (Lead lead, IRepository<Lead> repo, HttpContext http, CategoryRuleService ruleService) =>
         {
             lead.CreationDate = DateTime.UtcNow;
             lead.ChangeDate = DateTime.UtcNow;
             lead.CreationAuthorId = GetUserId(http);
             lead.ChangeAuthorId = GetUserId(http);
             var created = await repo.AddAsync(lead);
+            await ruleService.ApplyLeadRules(created);
             return Results.Created($"/api/leads/{created.Id}", created);
         });
 
-        api.MapPut("/{id:long}", async (long id, Lead lead, IRepository<Lead> repo, HttpContext http) =>
+        api.MapPut("/{id:long}", async (long id, Lead lead, IRepository<Lead> repo, HttpContext http, CategoryRuleService ruleService) =>
         {
             if (id != lead.Id) return Results.BadRequest();
             lead.ChangeDate = DateTime.UtcNow;
             lead.ChangeAuthorId = GetUserId(http);
             await repo.UpdateAsync(lead);
+            await ruleService.ApplyLeadRules(lead);
             return Results.NoContent();
         });
 

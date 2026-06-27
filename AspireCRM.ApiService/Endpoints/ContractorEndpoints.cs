@@ -1,3 +1,4 @@
+using AspireCRM.ApiService.Services;
 using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Common;
@@ -44,7 +45,7 @@ public static class ContractorEndpoints
             return contractor is null ? Results.NotFound() : Results.Ok(contractor);
         });
 
-        api.MapPost("/", async (CreateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        api.MapPost("/", async (CreateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService, CategoryRuleService ruleService) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
@@ -112,10 +113,11 @@ public static class ContractorEndpoints
             contractor.CreatedAt = DateTime.UtcNow;
             db.Contractors.Add(contractor);
             await db.SaveChangesAsync();
+            await ruleService.ApplyContractorRules(contractor);
             return Results.Created($"/api/contractors/{contractor.Id}", contractor);
         });
 
-        api.MapPut("/{id:long}", async (long id, UpdateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        api.MapPut("/{id:long}", async (long id, UpdateContractorRequest request, AspireCRMDbContext db, ITenantService tenantService, CategoryRuleService ruleService) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
@@ -217,6 +219,7 @@ public static class ContractorEndpoints
 
             existing.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
+            await ruleService.ApplyContractorRules(existing);
             return Results.NoContent();
         });
 
