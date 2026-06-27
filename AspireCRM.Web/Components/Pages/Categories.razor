@@ -1,0 +1,271 @@
+@page "/categories"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Категории</PageTitle>
+
+<h1>Категории</h1>
+
+<p>
+    <button class="btn btn-primary" @onclick="OpenCreate">+ Новая категория</button>
+</p>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+@if (categories is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (categories.Count == 0)
+{
+    <p class="text-muted">Нет категорий</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Название</th>
+            <th>Тип</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var c in categories)
+        {
+            <tr>
+                <td>@c.Name</td>
+                <td><span class="badge @TypeBadge(c.CategoryType)">@TypeDisplay(c.CategoryType)</span></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEdit(c)">Изменить</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(c)">Удалить</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@if (showCreateModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Создать категорию</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input class="form-control" @bind="editName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Тип</label>
+                        <select class="form-select" @bind="editType">
+                            <option value="Normal">Normal</option>
+                            <option value="Exclusive">Exclusive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="Create" disabled="@string.IsNullOrWhiteSpace(editName)">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showEditModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Изменить категорию</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input class="form-control" @bind="editName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Тип</label>
+                        <select class="form-select" @bind="editType">
+                            <option value="Normal">Normal</option>
+                            <option value="Exclusive">Exclusive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="Update" disabled="@string.IsNullOrWhiteSpace(editName)">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    Удалить категорию «@deletingCategory?.Name»?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-danger" @onclick="Delete">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Category>? categories;
+    private string? error;
+    private string? success;
+
+    private bool showCreateModal;
+    private bool showEditModal;
+    private bool showDeleteConfirm;
+
+    private Category? editingCategory;
+    private Category? deletingCategory;
+
+    private string editName = "";
+    private string editType = "Normal";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            categories = await Api.GetCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private void OpenCreate()
+    {
+        editName = "";
+        editType = "Normal";
+        showCreateModal = true;
+    }
+
+    private async Task Create()
+    {
+        try
+        {
+            var category = new Category
+            {
+                Name = editName.Trim(),
+                CategoryType = Enum.Parse<CategoryType>(editType)
+            };
+            await Api.CreateCategoryAsync(category);
+            success = "Категория создана";
+            showCreateModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void OpenEdit(Category category)
+    {
+        editingCategory = category;
+        editName = category.Name;
+        editType = category.CategoryType.ToString();
+        showEditModal = true;
+    }
+
+    private async Task Update()
+    {
+        if (editingCategory is null) return;
+        try
+        {
+            editingCategory.Name = editName.Trim();
+            editingCategory.CategoryType = Enum.Parse<CategoryType>(editType);
+            await Api.UpdateCategoryAsync(editingCategory.Id, editingCategory);
+            success = "Категория обновлена";
+            showEditModal = false;
+            editingCategory = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void ConfirmDelete(Category category)
+    {
+        deletingCategory = category;
+        showDeleteConfirm = true;
+    }
+
+    private async Task Delete()
+    {
+        if (deletingCategory is null) return;
+        try
+        {
+            await Api.DeleteCategoryAsync(deletingCategory.Id);
+            success = "Категория удалена";
+            showDeleteConfirm = false;
+            deletingCategory = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void CloseModals()
+    {
+        showCreateModal = false;
+        showEditModal = false;
+        showDeleteConfirm = false;
+        editingCategory = null;
+        deletingCategory = null;
+    }
+
+    private string TypeDisplay(CategoryType type) => type switch
+    {
+        CategoryType.Normal => "Normal",
+        CategoryType.Exclusive => "Exclusive",
+        _ => type.ToString()
+    };
+
+    private string TypeBadge(CategoryType type) => type switch
+    {
+        CategoryType.Normal => "bg-info text-dark",
+        CategoryType.Exclusive => "bg-warning text-dark",
+        _ => "bg-light"
+    };
+}
