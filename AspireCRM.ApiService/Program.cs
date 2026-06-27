@@ -25,6 +25,7 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<CategoryRuleService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<FtsIndexingService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<long>>(options =>
 {
@@ -66,6 +67,15 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AspireCRMDbContext>();
     db.Database.Migrate();
     await SeedData.InitializeAsync(db);
+
+    try
+    {
+        var fts = scope.ServiceProvider.GetRequiredService<FtsIndexingService>();
+        await fts.RebuildIndexAsync();
+    }
+    catch
+    {
+    }
 }
 
 app.UseExceptionHandler();
@@ -108,6 +118,7 @@ app.MapSecurityEndpoints();
 app.MapRelationshipEndpoints();
 app.MapSaleLookupEndpoints();
 app.MapAttachmentEndpoints();
+app.MapSearchEndpoints();
 
 app.MapDefaultEndpoints();
 

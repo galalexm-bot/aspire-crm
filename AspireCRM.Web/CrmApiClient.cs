@@ -1,4 +1,5 @@
 using AspireCRM.Domain.Attachments;
+using AspireCRM.Domain.Search;
 using AspireCRM.Web.Models;
 using System.Net.Http.Json;
 using AspireCRM.Domain.CategoryRules;
@@ -434,4 +435,10 @@ public class CrmApiClient(HttpClient http)
 
     public string GetAttachmentDownloadUrl(long id) =>
         $"/api/attachments/{id}/download";
+
+    public async Task<SearchResponse> SearchAsync(string query, int page = 1, int pageSize = 20)
+    {
+        var q = Uri.EscapeDataString(query);
+        return await http.GetFromJsonAsync<SearchResponse>($"/api/search?q={q}&page={page}&pageSize={pageSize}") ?? new SearchResponse([], 0);
+    }
 }

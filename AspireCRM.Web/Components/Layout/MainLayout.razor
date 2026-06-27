@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
 <div class="page">
     <div class="sidebar">
@@ -7,7 +8,11 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <div class="search-box">
+                <input type="text" @bind="searchQuery" @bind:event="oninput"
+                       @onkeydown="HandleKeyDown" class="form-control form-control-sm"
+                       placeholder="Поиск..." />
+            </div>
         </div>
 
         <article class="content px-4">
@@ -21,3 +26,16 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private string searchQuery = "";
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var q = Uri.EscapeDataString(searchQuery.Trim());
+            Navigation.NavigateTo($"/search?q={q}");
+        }
+    }
+}

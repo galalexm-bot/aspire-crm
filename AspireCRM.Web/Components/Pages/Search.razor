@@ -1,0 +1,111 @@
+﻿@page "/search"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Поиск</PageTitle>
+
+<h1>Поиск</h1>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (isLoading)
+{
+    <p><em>Поиск...</em></p>
+}
+else if (result is not null)
+{
+    <p>Найдено: @result.TotalCount</p>
+
+    @if (result.Results.Count == 0)
+    {
+        <p class="text-muted">Ничего не найдено</p>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var item in result.Results)
+            {
+                <a href="@GetEntityUrl(item)" class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">@item.Title</h6>
+                        <small class="text-muted">@GetEntityTypeName(item.EntityType)</small>
+                    </div>
+                    @if (!string.IsNullOrEmpty(item.Snippet))
+                    {
+                        <p class="mb-1">@((MarkupString)item.Snippet)</p>
+                    }
+                </a>
+            }
+        </div>
+    }
+}
+
+@using AspireCRM.Domain.Search
+
+@code {
+    [SupplyParameterFromQuery] public string? Q { get; set; }
+
+    private SearchResponse? result;
+    private bool isLoading;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Q))
+            await DoSearch();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Q))
+            await DoSearch();
+    }
+
+    private async Task DoSearch()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            result = await Api.SearchAsync(Q!);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка поиска: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string GetEntityTypeName(string entityType) => entityType switch
+    {
+        "Lead" => "Лид",
+        "Contractor" => "Контрагент",
+        "Contact" => "Контакт",
+        "Sale" => "Сделка",
+        "Inpayment" => "Платеж",
+        "Product" => "Товар",
+        "Relationship" => "Взаимоотношение",
+        "MarketingActivity" => "Маркетинг",
+        _ => entityType
+    };
+
+    private string GetEntityUrl(SearchResultItem item) => item.EntityType switch
+    {
+        "Lead" => $"/leads/{item.EntityId}",
+        "Contractor" => $"/contractors/{item.EntityId}",
+        "Contact" => $"/contacts/{item.EntityId}",
+        "Sale" => $"/sales/{item.EntityId}",
+        "Inpayment" => $"/inpayments/{item.EntityId}",
+        "Product" => $"/products/{item.EntityId}",
+        "Relationship" => $"/relationships/{item.EntityId}",
+        "MarketingActivity" => $"/marketing-activities/{item.EntityId}",
+        _ => "#"
+    };
+}
