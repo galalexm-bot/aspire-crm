@@ -1,0 +1,92 @@
+@using AspireCRM.Web.Models
+@page "/inpayments"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Платежи</PageTitle>
+
+<h1>Платежи</h1>
+
+<p>
+    <a href="/inpayments/new" class="btn btn-primary">+ Новый платёж</a>
+</p>
+
+@if (items is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (items.Count == 0)
+{
+    <p class="text-muted">Нет платежей</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Дата</th>
+                <th>Сделка</th>
+                <th>Контрагент</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td>@item.Name</td>
+                    <td>@item.Sum.ToString("N2")</td>
+                    <td><span class="badge @StatusBadge(item.Status)">@StatusDisplay(item.Status)</span></td>
+                    <td>@(item.Date?.ToShortDateString() ?? "-")</td>
+                    <td><a href="/sales/@item.SaleId">@item.SaleName</a></td>
+                    <td><a href="/contractors/@item.ContractorId">@item.ContractorName</a></td>
+                    <td>
+                        <a href="/inpayments/@item.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(item.Id)">Удалить</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "saleId")]
+    public long? SaleId { get; set; }
+
+    private List<InpaymentListItem>? items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await Api.GetInpaymentListAsync(SaleId);
+    }
+
+    private async Task Delete(long id)
+    {
+        await Api.DeleteInpaymentAsync(id);
+        items = await Api.GetInpaymentListAsync(SaleId);
+    }
+
+    private string StatusDisplay(InpaymentStatus status) => status switch
+    {
+        InpaymentStatus.InPlan => "Запланирован",
+        InpaymentStatus.Received => "Получен",
+        InpaymentStatus.Cancelled => "Отменён",
+        _ => status.ToString()
+    };
+
+    private string StatusBadge(InpaymentStatus status) => status switch
+    {
+        InpaymentStatus.InPlan => "bg-info text-dark",
+        InpaymentStatus.Received => "bg-success",
+        InpaymentStatus.Cancelled => "bg-danger",
+        _ => "bg-light"
+    };
+}

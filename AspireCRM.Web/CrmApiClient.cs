@@ -154,10 +154,22 @@ public class CrmApiClient(HttpClient http)
         return GetListAsync<Inpayment>(url);
     }
 
+    public Task<List<InpaymentListItem>> GetInpaymentListAsync(long? saleId = null)
+    {
+        var url = saleId.HasValue ? $"/api/inpayments/list?saleId={saleId}" : "/api/inpayments/list";
+        return GetListAsync<InpaymentListItem>(url);
+    }
+
     public Task<Inpayment?> GetInpaymentAsync(long id) => GetByIdAsync<Inpayment>("/api/inpayments", id);
     public Task<Inpayment> CreateInpaymentAsync(Inpayment i) => CreateAsync("/api/inpayments", i);
     public Task UpdateInpaymentAsync(long id, Inpayment i) => UpdateAsync("/api/inpayments", id, i);
     public Task DeleteInpaymentAsync(long id) => DeleteAsync("/api/inpayments", id);
+
+    public async Task ChangeInpaymentStatusAsync(long id, string status, string? comment = null)
+    {
+        var response = await http.PutAsJsonAsync($"/api/inpayments/{id}/change-status", new { status, comment });
+        response.EnsureSuccessStatusCode();
+    }
 
     public Task<List<Product>> GetProductsAsync() => GetListAsync<Product>("/api/products");
     public Task<Product?> GetProductAsync(long id) => GetByIdAsync<Product>("/api/products", id);

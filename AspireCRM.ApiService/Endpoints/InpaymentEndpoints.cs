@@ -1,5 +1,7 @@
+using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Payments;
+using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.ApiService.Endpoints;
 
@@ -9,12 +11,37 @@ public static class InpaymentEndpoints
     {
         var api = app.MapGroup("/api/inpayments");
 
-        api.MapGet("/", async (IRepository<Inpayment> repo, int page = 1, int pageSize = 20, long? saleId = null) =>
+        api.MapGet("/list", async (AspireCRMDbContext db, ITenantService tenantService, long? saleId = null) =>
         {
-            var filter = saleId.HasValue
-                ? (System.Linq.Expressions.Expression<Func<Inpayment, bool>>)(i => i.SaleId == saleId.Value)
-                : null;
-            return Results.Ok(await repo.GetPagedAsync(page, pageSize, filter));
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var query = db.Inpayments
+                .Include(i => i.Sale)
+                .Include(i => i.Contractor)
+                .Where(i => i.TenantId == tenantService.TenantId.Value && !i.IsDeleted);
+
+            if (saleId.HasValue)
+                query = query.Where(i => i.SaleId == saleId.Value);
+
+            var items = await query
+                .OrderByDescending(i => i.CreationDate)
+                .Select(i => new InpaymentListItem
+                {
+                    Id = i.Id,
+                    Name = i.Name,
+                    Sum = i.Sum,
+                    Status = i.Status,
+                    Date = i.Date,
+                    CreationDate = i.CreationDate,
+                    SaleId = i.SaleId,
+                    SaleName = i.Sale.Name,
+                    ContractorId = i.ContractorId,
+                    ContractorName = i.Contractor.Name
+                })
+                .ToListAsync();
+
+            return Results.Ok(items);
         });
 
         api.MapGet("/{id:long}", async (long id, IRepository<Inpayment> repo) =>
@@ -43,5 +70,43 @@ public static class InpaymentEndpoints
             await repo.DeleteAsync(inpayment);
             return Results.NoContent();
         });
+
+        api.MapPut("/{id:long}/change-status", async (long id, InpaymentStatusChangeRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var inpayment = await db.Inpayments
+                .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantService.TenantId.Value && !i.IsDeleted);
+
+            if (inpayment is null) return Results.NotFound();
+
+            if (!Enum.TryParse<InpaymentStatus>(request.Status, out var newStatus))
+                return Results.BadRequest("Некорректный статус");
+
+            inpayment.Status = newStatus;
+            inpayment.ChangeStatusDate = DateTime.UtcNow;
+            inpayment.ChangeStatusComment = request.Comment;
+            inpayment.ChangeDate = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
     }
 }
+
+public class InpaymentListItem
+{
+    public long Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Sum { get; set; }
+    public InpaymentStatus Status { get; set; }
+    public DateTime? Date { get; set; }
+    public DateTime CreationDate { get; set; }
+    public long SaleId { get; set; }
+    public string SaleName { get; set; } = string.Empty;
+    public long ContractorId { get; set; }
+    public string ContractorName { get; set; } = string.Empty;
+}
+
+public record InpaymentStatusChangeRequest(string Status, string? Comment);

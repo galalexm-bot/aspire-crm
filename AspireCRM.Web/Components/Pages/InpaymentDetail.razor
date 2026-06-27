@@ -1,0 +1,243 @@
+@page "/inpayments/{Id:long}"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Платёж @(inpayment?.Name ?? "")</PageTitle>
+
+<h1>Платёж</h1>
+
+@if (inpayment is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    @if (!string.IsNullOrEmpty(success))
+    {
+        <div class="alert alert-success">@success</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>Основная информация</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Название</label>
+                    <input @bind="inpayment.Name" class="form-control" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Статус</label>
+                    <span class="badge @StatusBadgeClass(inpayment.Status) fs-6 d-block text-start p-2">@StatusDisplay(inpayment.Status)</span>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Сумма</label>
+                    <input @bind="inpayment.Sum" class="form-control" type="number" step="0.01" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Сделка</label>
+                    <select @bind="inpayment.SaleId" class="form-select">
+                        <option value="0">-- Выберите --</option>
+                        @foreach (var s in sales)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Контрагент</label>
+                    <select @bind="inpayment.ContractorId" class="form-select">
+                        <option value="0">-- Выберите --</option>
+                        @foreach (var c in contractors)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Дата платежа</label>
+                    <input @bind="inpayment.Date" class="form-control" type="date" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Фактическая дата</label>
+                    <input @bind="inpayment.ActualDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input @bind="inpayment.Invoice" class="form-check-input" type="checkbox" id="invoice" />
+                        <label class="form-check-label" for="invoice">Счёт</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Комментарий</label>
+                <textarea @bind="inpayment.Comment" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <button class="btn btn-primary me-2" @onclick="Save" disabled="@isLoading">Сохранить</button>
+                <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/inpayments")'>Назад</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>Смена статуса</h5></div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-6 mb-2">
+                    <input @bind="statusComment" class="form-control" placeholder="Комментарий (необязательно)" />
+                </div>
+                <div class="col-md-6 mb-2">
+                    @if (inpayment.Status != InpaymentStatus.Received)
+                    {
+                        <button class="btn btn-success me-2" @onclick="() => ChangeStatus(InpaymentStatus.Received)" disabled="@isLoading">Отметить полученным</button>
+                    }
+                    @if (inpayment.Status != InpaymentStatus.Cancelled)
+                    {
+                        <button class="btn btn-danger me-2" @onclick="() => ChangeStatus(InpaymentStatus.Cancelled)" disabled="@isLoading">Отменить</button>
+                    }
+                    @if (inpayment.Status != InpaymentStatus.InPlan)
+                    {
+                        <button class="btn btn-info me-2" @onclick="() => ChangeStatus(InpaymentStatus.InPlan)" disabled="@isLoading">Вернуть в план</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private Inpayment? inpayment;
+    private bool isLoading;
+    private string? error;
+    private string? success;
+    private string? statusComment;
+
+    private List<Sale> sales = [];
+    private List<Contractor> contractors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadInpayment(), LoadSales(), LoadContractors());
+    }
+
+    private async Task LoadInpayment()
+    {
+        try
+        {
+            inpayment = await Api.GetInpaymentAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private async Task LoadSales()
+    {
+        try { sales = await Api.GetSalesAsync(); } catch { }
+    }
+
+    private async Task LoadContractors()
+    {
+        try { contractors = await Api.GetContractorsListAsync(); } catch { }
+    }
+
+    private string StatusDisplay(InpaymentStatus status) => status switch
+    {
+        InpaymentStatus.InPlan => "Запланирован",
+        InpaymentStatus.Received => "Получен",
+        InpaymentStatus.Cancelled => "Отменён",
+        _ => status.ToString()
+    };
+
+    private string StatusBadgeClass(InpaymentStatus status) => status switch
+    {
+        InpaymentStatus.InPlan => "bg-info text-dark",
+        InpaymentStatus.Received => "bg-success",
+        InpaymentStatus.Cancelled => "bg-danger",
+        _ => "bg-light"
+    };
+
+    private async Task Save()
+    {
+        if (inpayment is null) return;
+
+        if (string.IsNullOrWhiteSpace(inpayment.Name))
+        {
+            error = "Название обязательно";
+            return;
+        }
+        if (inpayment.SaleId <= 0)
+        {
+            error = "Выберите сделку";
+            return;
+        }
+        if (inpayment.ContractorId <= 0)
+        {
+            error = "Выберите контрагента";
+            return;
+        }
+        if (inpayment.Sum <= 0)
+        {
+            error = "Сумма должна быть больше 0";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.UpdateInpaymentAsync(Id, inpayment);
+            success = "Платёж сохранён";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ChangeStatus(InpaymentStatus newStatus)
+    {
+        if (inpayment is null) return;
+        if (inpayment.Status == newStatus) return;
+
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            await Api.ChangeInpaymentStatusAsync(Id, newStatus.ToString(), statusComment);
+            inpayment.Status = newStatus;
+            statusComment = null;
+            success = $"Статус изменён на \"{StatusDisplay(newStatus)}\"";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

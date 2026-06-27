@@ -1,0 +1,162 @@
+@page "/inpayments/new"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Новый платёж</PageTitle>
+
+<h1>Новый платёж</h1>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Сделка *</label>
+                <select @bind="inpayment.SaleId" class="form-select">
+                    <option value="0">-- Выберите --</option>
+                    @foreach (var s in sales)
+                    {
+                        <option value="@s.Id">@s.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Контрагент *</label>
+                <select @bind="inpayment.ContractorId" class="form-select">
+                    <option value="0">-- Выберите --</option>
+                    @foreach (var c in contractors)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Название *</label>
+                <input @bind="inpayment.Name" class="form-control" />
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Сумма *</label>
+                <input @bind="inpayment.Sum" class="form-control" type="number" step="0.01" />
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Статус</label>
+                <select @bind="inpayment.Status" class="form-select">
+                    <option value="@InpaymentStatus.InPlan">Запланирован</option>
+                    <option value="@InpaymentStatus.Received">Получен</option>
+                    <option value="@InpaymentStatus.Cancelled">Отменён</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Дата платежа</label>
+                <input @bind="inpayment.Date" class="form-control" type="date" />
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Фактическая дата</label>
+                <input @bind="inpayment.ActualDate" class="form-control" type="date" />
+            </div>
+            <div class="col-md-4 mb-3 d-flex align-items-end">
+                <div class="form-check">
+                    <input @bind="inpayment.Invoice" class="form-check-input" type="checkbox" id="invoice" />
+                    <label class="form-check-label" for="invoice">Счёт</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Комментарий</label>
+            <textarea @bind="inpayment.Comment" class="form-control" rows="3"></textarea>
+        </div>
+
+        <button class="btn btn-primary" @onclick="Save" disabled="@isLoading">Создать</button>
+        <button class="btn btn-secondary ms-2" @onclick='() => Nav.NavigateTo("/inpayments")'>Отмена</button>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger mt-3">@error</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "saleId")]
+    public long? SaleId { get; set; }
+
+    private Inpayment inpayment = new()
+    {
+        Name = "",
+        Sum = 0,
+        Status = InpaymentStatus.InPlan,
+        CreationDate = DateTime.UtcNow,
+        Date = DateTime.Today
+    };
+
+    private bool isLoading;
+    private string? error;
+    private List<Sale> sales = [];
+    private List<Contractor> contractors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SaleId.HasValue && SaleId.Value > 0)
+            inpayment.SaleId = SaleId.Value;
+
+        await Task.WhenAll(LoadSales(), LoadContractors());
+    }
+
+    private async Task LoadSales()
+    {
+        try { sales = await Api.GetSalesAsync(); } catch { }
+    }
+
+    private async Task LoadContractors()
+    {
+        try { contractors = await Api.GetContractorsListAsync(); } catch { }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(inpayment.Name))
+        {
+            error = "Название обязательно";
+            return;
+        }
+        if (inpayment.SaleId <= 0)
+        {
+            error = "Выберите сделку";
+            return;
+        }
+        if (inpayment.ContractorId <= 0)
+        {
+            error = "Выберите контрагента";
+            return;
+        }
+        if (inpayment.Sum <= 0)
+        {
+            error = "Сумма должна быть больше 0";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        try
+        {
+            var created = await Api.CreateInpaymentAsync(inpayment);
+            Nav.NavigateTo($"/inpayments/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
