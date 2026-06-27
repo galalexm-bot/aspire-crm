@@ -32,6 +32,9 @@ public static class LookupEndpoints
         api.MapGet("/sale-types", async (IRepository<Domain.Sales.SaleType> repo) =>
             Results.Ok(await repo.GetAllAsync()));
 
+        api.MapGet("/sale-funnels", async (IRepository<Domain.Sales.SaleFunnel> repo) =>
+            Results.Ok(await repo.GetAllAsync()));
+
         api.MapGet("/sale-stages", async (IRepository<Domain.Sales.SaleStage> repo) =>
             Results.Ok(await repo.GetAllAsync()));
 

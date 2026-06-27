@@ -1,0 +1,225 @@
+@using AspireCRM.Web.Models
+@page "/sales/new"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Новая сделка</PageTitle>
+
+<h1>Новая сделка</h1>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Название *</label>
+                <input @bind="sale.Name" class="form-control" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Контрагент *</label>
+                <select @bind="sale.ContractorId" class="form-select">
+                    <option value="0">-- Выберите --</option>
+                    @foreach (var c in contractors)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Воронка</label>
+                <select @bind="sale.SaleFunnelId" class="form-select">
+                    <option value="">-- Выберите --</option>
+                    @foreach (var f in funnels)
+                    {
+                        <option value="@f.Id">@f.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Этап</label>
+                <select @bind="sale.SaleStageId" class="form-select">
+                    <option value="">-- Выберите --</option>
+                    @foreach (var s in stages)
+                    {
+                        <option value="@s.Id">@s.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Тип сделки *</label>
+                <select @bind="sale.SaleTypeId" class="form-select">
+                    <option value="0">-- Выберите --</option>
+                    @foreach (var t in types)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Валюта</label>
+                <select @bind="sale.CurrencyId" class="form-select">
+                    <option value="">-- Выберите --</option>
+                    @foreach (var c in currencies)
+                    {
+                        <option value="@c.Id">@c.Name (@c.Code)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Приоритет</label>
+                <select @bind="sale.Priority" class="form-select">
+                    <option value="@SalePriority.High">Высокий</option>
+                    <option value="@SalePriority.Medium">Средний</option>
+                    <option value="@SalePriority.Low">Низкий</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Ответственный</label>
+                <select @bind="sale.ResponsibleId" class="form-select">
+                    <option value="0">-- Выберите --</option>
+                    @foreach (var u in users)
+                    {
+                        <option value="@u.Id">@($"{u.LastName} {u.FirstName}".Trim())</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Маркетинговый эффект</label>
+                <input @bind="sale.MarketingEffect" class="form-control" />
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Объем продаж</label>
+                <input @bind="sale.SalesVolume" class="form-control" type="number" step="0.01" />
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Дата старта</label>
+                <input @bind="sale.StartDate" class="form-control" type="date" />
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Описание</label>
+            <textarea @bind="sale.Description" class="form-control" rows="3"></textarea>
+        </div>
+
+        <button class="btn btn-primary" @onclick="Save" disabled="@isLoading">Создать</button>
+        <button class="btn btn-secondary ms-2" @onclick='() => Nav.NavigateTo("/sales")'>Отмена</button>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger mt-3">@error</div>
+        }
+    </div>
+</div>
+
+@code {
+    private Sale sale = new()
+    {
+        Name = "",
+        ContractorId = 0,
+        SaleTypeId = 0,
+        ResponsibleId = 0,
+        Priority = SalePriority.Medium,
+        SaleStatus = SaleStatus.Active,
+        StartDate = DateTime.Today,
+        CreationDate = DateTime.UtcNow
+    };
+
+    private bool isLoading;
+    private string? error;
+
+    private List<Contractor> contractors = [];
+    private List<SaleFunnel> funnels = [];
+    private List<SaleStage> stages = [];
+    private List<SaleType> types = [];
+    private List<Currency> currencies = [];
+    private List<UserDto> users = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tasks = new Task[]
+        {
+            GetContractors(),
+            GetFunnels(),
+            GetStages(),
+            GetTypes(),
+            GetCurrencies(),
+            GetUsers()
+        };
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task GetContractors()
+    {
+        try { contractors = await Api.GetContractorsListAsync(); } catch { }
+    }
+
+    private async Task GetFunnels()
+    {
+        try { funnels = await Api.GetLookupAsync<SaleFunnel>("sale-funnels"); } catch { }
+    }
+
+    private async Task GetStages()
+    {
+        try { stages = await Api.GetLookupAsync<SaleStage>("sale-stages"); } catch { }
+    }
+
+    private async Task GetTypes()
+    {
+        try { types = await Api.GetLookupAsync<SaleType>("sale-types"); } catch { }
+    }
+
+    private async Task GetCurrencies()
+    {
+        try { currencies = await Api.GetLookupAsync<Currency>("currencies"); } catch { }
+    }
+
+    private async Task GetUsers()
+    {
+        try { users = await Api.GetUsersAsync(); } catch { }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(sale.Name))
+        {
+            error = "Название обязательно";
+            return;
+        }
+        if (sale.ContractorId <= 0)
+        {
+            error = "Выберите контрагента";
+            return;
+        }
+        if (sale.SaleTypeId <= 0)
+        {
+            error = "Выберите тип сделки";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        try
+        {
+            var created = await Api.CreateSaleAsync(sale);
+            Nav.NavigateTo($"/sales/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

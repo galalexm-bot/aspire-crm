@@ -38,6 +38,7 @@ public class CrmApiClient(HttpClient http)
     public Task DeleteLeadAsync(long id) => DeleteAsync("/api/leads", id);
 
     public Task<List<Contractor>> GetContractorsAsync() => GetListAsync<Contractor>("/api/contractors");
+    public Task<List<Contractor>> GetContractorsListAsync() => GetListAsync<Contractor>("/api/contractors/list");
     public Task<Contractor?> GetContractorAsync(long id) => GetByIdAsync<Contractor>("/api/contractors", id);
     public Task<Contractor> CreateContractorAsync(Contractor c) => CreateAsync("/api/contractors", c);
     public async Task<Contractor> CreateContractorWithTypeAsync(CreateContractorRequest request)

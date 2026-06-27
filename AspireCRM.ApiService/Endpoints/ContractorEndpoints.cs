@@ -15,6 +15,9 @@ public static class ContractorEndpoints
         api.MapGet("/", async (IRepository<Contractor> repo, int page = 1, int pageSize = 20) =>
             Results.Ok(await repo.GetPagedAsync(page, pageSize)));
 
+        api.MapGet("/list", async (IRepository<Contractor> repo) =>
+            Results.Ok(await repo.GetAllAsync()));
+
         api.MapGet("/{id:long}", async (long id, IRepository<Contractor> repo) =>
         {
             var contractor = await repo.GetByIdAsync(id);
