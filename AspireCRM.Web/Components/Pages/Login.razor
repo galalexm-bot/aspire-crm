@@ -15,24 +15,19 @@
                 <h3>Вход в AspireCRM</h3>
             </div>
             <div class="card-body">
-                <EditForm Model="@Model" OnValidSubmit="@HandleLogin" FormName="login">
-                    <DataAnnotationsValidator />
-                    <ValidationSummary class="text-danger" />
+                <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input @bind="Email" @bind:event="oninput" class="form-control" />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <InputText @bind-Value="Model.Email" @bind-Value:event="oninput" class="form-control" />
-                    </div>
+                        <div class="mb-3">
+                            <label class="form-label">Пароль</label>
+                            <input @bind="Password" @bind:event="oninput" type="password" class="form-control" />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Пароль</label>
-                        <InputText @bind-Value="Model.Password" type="password" class="form-control" />
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100" disabled="@IsLoading">
-                        @(IsLoading ? "Вход..." : "Войти")
-                    </button>
-                </EditForm>
+                        <button type="button" class="btn btn-primary w-100" disabled="@IsLoading" @onclick="HandleLogin">
+                            @(IsLoading ? "Вход..." : "Войти")
+                        </button>
 
                 @if (!string.IsNullOrEmpty(Error))
                 {
@@ -44,17 +39,24 @@
 </div>
 
 @code {
-    private LoginModel Model { get; set; } = new();
+    private string Email { get; set; } = "";
+    private string Password { get; set; } = "";
     private bool IsLoading { get; set; }
     private string? Error { get; set; }
 
     private async Task HandleLogin()
     {
+        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
+        {
+            Error = "Заполните email и пароль";
+            return;
+        }
+
         IsLoading = true;
         Error = null;
         try
         {
-            var response = await Http.PostAsJsonAsync("https+http://apiservice/api/auth/login", Model);
+            var response = await Http.PostAsJsonAsync("https+http://apiservice/api/auth/login", new { Email, Password });
             if (!response.IsSuccessStatusCode)
             {
                 Error = "Неверный email или пароль";
@@ -76,14 +78,6 @@
         {
             IsLoading = false;
         }
-    }
-
-    private class LoginModel
-    {
-        [System.ComponentModel.DataAnnotations.Required]
-        public string Email { get; set; } = "";
-        [System.ComponentModel.DataAnnotations.Required]
-        public string Password { get; set; } = "";
     }
 
     private record LoginResult(string Token, long UserId, long TenantId);
