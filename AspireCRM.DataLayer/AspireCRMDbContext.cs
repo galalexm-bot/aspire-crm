@@ -2,6 +2,7 @@ using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
+using AspireCRM.Domain.Marketing;
 using AspireCRM.Domain.Payments;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Relationships;
@@ -119,6 +120,7 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         ConfigureInpayment(modelBuilder);
         ConfigureRelationshipHierarchy(modelBuilder);
         ConfigureCategoryRule(modelBuilder);
+        ConfigureMarketing(modelBuilder);
         ConfigureLookups(modelBuilder);
         ConfigureTenant(modelBuilder);
         ConfigureIdentityTables(modelBuilder);
@@ -478,6 +480,47 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
                 .WithMany(r => r.RelationshipUsers)
                 .HasForeignKey(ru => ru.RelationshipId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureMarketing(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<MarketingActivity>(e =>
+        {
+            e.Property(a => a.Name).IsRequired().HasMaxLength(512);
+            e.Property(a => a.Description).HasMaxLength(4000);
+            e.Property(a => a.Budget).HasColumnType("decimal(18,2)");
+            e.Property(a => a.ActualCost).HasColumnType("decimal(18,2)");
+            e.Property(a => a.Status).IsRequired().HasConversion<string>().HasMaxLength(50);
+            e.Property(a => a.Type).IsRequired().HasConversion<string>().HasMaxLength(50);
+            e.Property(a => a.MarketingEffect).HasMaxLength(256);
+
+            e.HasMany(a => a.Payments)
+                .WithOne(p => p.MarketingActivity)
+                .HasForeignKey(p => p.MarketingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(a => a.Elements)
+                .WithOne(el => el.MarketingActivity)
+                .HasForeignKey(el => el.MarketingActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MarketingPayment>(e =>
+        {
+            e.Property(p => p.Name).IsRequired().HasMaxLength(512);
+            e.Property(p => p.Amount).IsRequired().HasColumnType("decimal(18,2)");
+            e.Property(p => p.Description).HasMaxLength(4000);
+        });
+
+        modelBuilder.Entity<MarketingElement>(e =>
+        {
+            e.Property(el => el.Name).IsRequired().HasMaxLength(512);
+            e.Property(el => el.ElementType).HasMaxLength(100);
+            e.Property(el => el.Cost).HasColumnType("decimal(18,2)");
+            e.Property(el => el.ExpectedRevenue).HasColumnType("decimal(18,2)");
+            e.Property(el => el.ActualRevenue).HasColumnType("decimal(18,2)");
+            e.Property(el => el.Description).HasMaxLength(4000);
         });
     }
 

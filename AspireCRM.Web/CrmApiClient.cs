@@ -4,6 +4,7 @@ using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
 using AspireCRM.Domain.Leads;
+using AspireCRM.Domain.Marketing;
 using AspireCRM.Domain.Payments;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Relationships;
@@ -240,6 +241,23 @@ public class CrmApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
     }
     public Task DeleteCategoryRuleAsync(long id) => DeleteAsync("/api/category-rules", id);
+
+    public Task<List<MarketingActivity>> GetMarketingActivitiesAsync() => GetListAsync<MarketingActivity>("/api/marketing-activities");
+    public Task<MarketingActivity?> GetMarketingActivityAsync(long id) => GetByIdAsync<MarketingActivity>("/api/marketing-activities", id);
+    public async Task<MarketingActivity> CreateMarketingActivityAsync(CreateMarketingActivityRequest request)
+    {
+        var response = await http.PostAsJsonAsync("/api/marketing-activities", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<MarketingActivity>())!;
+    }
+    public async Task UpdateMarketingActivityAsync(long id, UpdateMarketingActivityRequest request)
+    {
+        var response = await http.PutAsJsonAsync($"/api/marketing-activities/{id}", request);
+        response.EnsureSuccessStatusCode();
+    }
+    public Task DeleteMarketingActivityAsync(long id) => DeleteAsync("/api/marketing-activities", id);
+    public async Task<MarketingActivityStats?> GetMarketingActivityStatsAsync(long id) =>
+        await http.GetFromJsonAsync<MarketingActivityStats>($"/api/marketing-activities/{id}/stats");
 
     public async Task<RelationshipListResponse?> GetRelationshipsAsync(int page = 1, int pageSize = 20,
         string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null,

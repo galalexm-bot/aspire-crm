@@ -1,0 +1,408 @@
+﻿@page "/marketing-activities"
+@using AspireCRM.Web.Models
+@using AspireCRM.Domain.Marketing
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Маркетинговые активности</PageTitle>
+
+<h1>Маркетинговые активности</h1>
+
+<p>
+    <button class="btn btn-primary" @onclick="OpenCreate">+ Новая активность</button>
+</p>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+@if (activities is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (activities.Count == 0)
+{
+    <p class="text-muted">Нет маркетинговых активностей. Создайте первую активность.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Название</th>
+            <th>Тип</th>
+            <th>Статус</th>
+            <th>Бюджет</th>
+            <th>Затраты</th>
+            <th>Старт</th>
+            <th>Окончание</th>
+            <th>Эффект</th>
+            <th>Элементы</th>
+            <th>Платежи</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var a in activities)
+        {
+            <tr>
+                <td>@a.Name</td>
+                <td>@TypeDisplay(a.Type)</td>
+                <td><span class="badge @StatusBadge(a.Status)">@StatusDisplay(a.Status)</span></td>
+                <td>@(a.Budget?.ToString("N2") ?? "-")</td>
+                <td>@(a.ActualCost?.ToString("N2") ?? "-")</td>
+                <td>@a.StartDate?.ToString("dd.MM.yyyy")</td>
+                <td>@a.EndDate?.ToString("dd.MM.yyyy")</td>
+                <td>@a.MarketingEffect</td>
+                <td>@(a.Elements?.Count ?? 0)</td>
+                <td>@(a.Payments?.Count ?? 0)</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEdit(a)">Изменить</button>
+                    <button class="btn btn-sm btn-outline-info me-1" @onclick="() => ShowStats(a)">Статистика</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(a)">Удалить</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Изменить" : "Создать") активность</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input class="form-control" @bind="editName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Тип</label>
+                        <select class="form-select" @bind="editType">
+                            <option value="Email">Email-рассылка</option>
+                            <option value="Social">Социальные сети</option>
+                            <option value="Event">Мероприятие</option>
+                            <option value="Webinar">Вебинар</option>
+                            <option value="Content">Контент</option>
+                            <option value="Other">Другое</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Статус</label>
+                        <select class="form-select" @bind="editStatus">
+                            <option value="Planned">Запланирована</option>
+                            <option value="InProgress">В процессе</option>
+                            <option value="Completed">Завершена</option>
+                            <option value="Cancelled">Отменена</option>
+                        </select>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">Дата начала</label>
+                            <input class="form-control" type="date" @bind="editStartDate" />
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Дата окончания</label>
+                            <input class="form-control" type="date" @bind="editEndDate" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">Бюджет</label>
+                            <input class="form-control" type="number" step="0.01" @bind="editBudget" />
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Факт. затраты</label>
+                            <input class="form-control" type="number" step="0.01" @bind="editActualCost" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Метка эффекта (для связи с лидами/сделками)</label>
+                        <input class="form-control" @bind="editMarketingEffect" placeholder="например: email_campaign_2026" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Описание</label>
+                        <textarea class="form-control" rows="3" @bind="editDescription"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="async () => { if (isEditing) { await Update(); } else { await Create(); } }" disabled="@(string.IsNullOrWhiteSpace(editName))">
+                        @(isEditing ? "Сохранить" : "Создать")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showStatsModal && statsActivity is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Статистика: @statsActivity.Name</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    @if (stats is null)
+                    {
+                        <p><em>Загрузка...</em></p>
+                    }
+                    else
+                    {
+                        <table class="table table-bordered">
+                            <tr><th>Показатель</th><th>Значение</th></tr>
+                            <tr><td>Бюджет</td><td>@(stats.TotalBudget?.ToString("N2") ?? "-")</td></tr>
+                            <tr><td>Фактические затраты</td><td>@(stats.TotalCost?.ToString("N2") ?? "-")</td></tr>
+                            <tr><td>Ожидаемая выручка</td><td>@stats.ExpectedRevenue.ToString("N2")</td></tr>
+                            <tr><td>Фактическая выручка</td><td>@stats.ActualRevenue.ToString("N2")</td></tr>
+                            <tr><td>Привлечено лидов</td><td>@stats.LeadCount</td></tr>
+                            <tr><td>Создано сделок</td><td>@stats.SaleCount</td></tr>
+                        </table>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    Удалить активность «@deletingActivity?.Name»?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Отмена</button>
+                    <button type="button" class="btn btn-danger" @onclick="Delete">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MarketingActivity>? activities;
+    private string? error;
+    private string? success;
+    private bool showModal;
+    private bool isEditing;
+    private MarketingActivity? editingActivity;
+    private bool showDeleteConfirm;
+    private MarketingActivity? deletingActivity;
+    private bool showStatsModal;
+    private MarketingActivity? statsActivity;
+    private MarketingActivityStats? stats;
+    private string editName = "";
+    private string editDescription = "";
+    private DateTime? editStartDate;
+    private DateTime? editEndDate;
+    private string editBudget = "";
+    private string editActualCost = "";
+    private string editStatus = "Planned";
+    private string editType = "Other";
+    private string editMarketingEffect = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            activities = await Api.GetMarketingActivitiesAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private void OpenCreate()
+    {
+        isEditing = false;
+        editingActivity = null;
+        editName = "";
+        editDescription = "";
+        editStartDate = null;
+        editEndDate = null;
+        editBudget = "";
+        editActualCost = "";
+        editStatus = "Planned";
+        editType = "Other";
+        editMarketingEffect = "";
+        showModal = true;
+    }
+
+    private void OpenEdit(MarketingActivity activity)
+    {
+        isEditing = true;
+        editingActivity = activity;
+        editName = activity.Name;
+        editDescription = activity.Description ?? "";
+        editStartDate = activity.StartDate;
+        editEndDate = activity.EndDate;
+        editBudget = activity.Budget?.ToString() ?? "";
+        editActualCost = activity.ActualCost?.ToString() ?? "";
+        editStatus = activity.Status.ToString();
+        editType = activity.Type.ToString();
+        editMarketingEffect = activity.MarketingEffect ?? "";
+        showModal = true;
+    }
+
+    private async Task ShowStats(MarketingActivity activity)
+    {
+        statsActivity = activity;
+        stats = null;
+        showStatsModal = true;
+        try
+        {
+            stats = await Api.GetMarketingActivityStatsAsync(activity.Id);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки статистики: {ex.Message}";
+        }
+    }
+
+    private async Task Create()
+    {
+        try
+        {
+            var request = new CreateMarketingActivityRequest
+            {
+                Name = editName.Trim(),
+                Description = string.IsNullOrWhiteSpace(editDescription) ? null : editDescription.Trim(),
+                StartDate = editStartDate,
+                EndDate = editEndDate,
+                Budget = decimal.TryParse(editBudget, out var b) ? b : null,
+                Status = Enum.Parse<MarketingActivityStatus>(editStatus),
+                Type = Enum.Parse<MarketingActivityType>(editType),
+                MarketingEffect = string.IsNullOrWhiteSpace(editMarketingEffect) ? null : editMarketingEffect.Trim()
+            };
+            await Api.CreateMarketingActivityAsync(request);
+            success = "Активность создана";
+            showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private async Task Update()
+    {
+        if (editingActivity is null) return;
+        try
+        {
+            var request = new UpdateMarketingActivityRequest
+            {
+                Name = editName.Trim(),
+                Description = string.IsNullOrWhiteSpace(editDescription) ? null : editDescription.Trim(),
+                StartDate = editStartDate,
+                EndDate = editEndDate,
+                Budget = decimal.TryParse(editBudget, out var b) ? b : null,
+                Status = Enum.Parse<MarketingActivityStatus>(editStatus),
+                Type = Enum.Parse<MarketingActivityType>(editType),
+                MarketingEffect = string.IsNullOrWhiteSpace(editMarketingEffect) ? null : editMarketingEffect.Trim()
+            };
+            await Api.UpdateMarketingActivityAsync(editingActivity.Id, request);
+            success = "Активность обновлена";
+            showModal = false;
+            editingActivity = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void ConfirmDelete(MarketingActivity activity)
+    {
+        deletingActivity = activity;
+        showDeleteConfirm = true;
+    }
+
+    private async Task Delete()
+    {
+        if (deletingActivity is null) return;
+        try
+        {
+            await Api.DeleteMarketingActivityAsync(deletingActivity.Id);
+            success = "Активность удалена";
+            showDeleteConfirm = false;
+            deletingActivity = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private void CloseModals()
+    {
+        showModal = false;
+        showDeleteConfirm = false;
+        showStatsModal = false;
+        editingActivity = null;
+        deletingActivity = null;
+        statsActivity = null;
+        stats = null;
+    }
+
+    private string TypeDisplay(MarketingActivityType type) => type switch
+    {
+        MarketingActivityType.Email => "Email-рассылка",
+        MarketingActivityType.Social => "Соц. сети",
+        MarketingActivityType.Event => "Мероприятие",
+        MarketingActivityType.Webinar => "Вебинар",
+        MarketingActivityType.Content => "Контент",
+        MarketingActivityType.Other => "Другое",
+        _ => type.ToString()
+    };
+
+    private string StatusDisplay(MarketingActivityStatus status) => status switch
+    {
+        MarketingActivityStatus.Planned => "Запланирована",
+        MarketingActivityStatus.InProgress => "В процессе",
+        MarketingActivityStatus.Completed => "Завершена",
+        MarketingActivityStatus.Cancelled => "Отменена",
+        _ => status.ToString()
+    };
+
+    private string StatusBadge(MarketingActivityStatus status) => status switch
+    {
+        MarketingActivityStatus.Planned => "bg-secondary",
+        MarketingActivityStatus.InProgress => "bg-primary",
+        MarketingActivityStatus.Completed => "bg-success",
+        MarketingActivityStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+}
