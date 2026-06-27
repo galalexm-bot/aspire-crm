@@ -118,6 +118,7 @@ app.MapSecurityEndpoints();
 app.MapRelationshipEndpoints();
 app.MapSaleLookupEndpoints();
 app.MapAttachmentEndpoints();
+app.MapTaskEndpoints();
 app.MapSearchEndpoints();
 
 app.MapDefaultEndpoints();

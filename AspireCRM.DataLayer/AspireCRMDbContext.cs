@@ -1,3 +1,4 @@
+using AspireCRM.Domain.Tasks;
 using AspireCRM.Domain.Attachments;
 using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
@@ -612,6 +613,20 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
             e.Property(t => t.Name).IsRequired().HasMaxLength(256);
             e.Property(t => t.Code).IsRequired().HasMaxLength(50);
             e.HasIndex(t => t.Code).IsUnique();
+        });
+    }
+
+    private static void ConfigureTask(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CrmTask>(e =>
+        {
+            e.Property(t => t.Title).IsRequired().HasMaxLength(512);
+            e.Property(t => t.Description).HasMaxLength(4000);
+            e.Property(t => t.EntityType).IsRequired().HasMaxLength(256);
+            e.Property(t => t.EntityId).IsRequired();
+
+            e.HasIndex(t => new { t.EntityType, t.EntityId });
+            e.HasIndex(t => t.AssignedToId);
         });
     }
 

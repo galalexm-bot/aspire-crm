@@ -1,3 +1,4 @@
+using AspireCRM.Domain.Tasks;
 using AspireCRM.Domain.Attachments;
 using AspireCRM.Domain.Search;
 using AspireCRM.Web.Models;
@@ -414,6 +415,36 @@ public class CrmApiClient(HttpClient http)
 
     public async Task<List<LeadSource>> GetLeadSourcesAsync() =>
         await GetLookupAsync<LeadSource>("lead-sources");
+
+    public Task<List<CrmTask>> GetTasksAsync(string entityType, long entityId) =>
+        GetListAsync<CrmTask>($"/api/tasks/by-entity/{entityType}/{entityId}");
+
+    public Task<CrmTask?> GetTaskAsync(long id) =>
+        GetByIdAsync<CrmTask>("/api/tasks", id);
+
+    public async Task<CrmTask> CreateTaskAsync(CrmTask task)
+    {
+        var response = await http.PostAsJsonAsync("/api/tasks/", task);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CrmTask>())!;
+    }
+
+    public async Task<CrmTask> UpdateTaskAsync(long id, CrmTask task)
+    {
+        var response = await http.PutAsJsonAsync($"/api/tasks/{id}", task);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CrmTask>())!;
+    }
+
+    public Task DeleteTaskAsync(long id) =>
+        DeleteAsync("/api/tasks", id);
+
+    public async Task<CrmTask> ToggleTaskAsync(long id)
+    {
+        var response = await http.PostAsync($"/api/tasks/{id}/toggle", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CrmTask>())!;
+    }
 
     public Task<List<CrmAttachment>> GetAttachmentsAsync(string entityType, long entityId) =>
         GetListAsync<CrmAttachment>($"/api/attachments/by-entity/{entityType}/{entityId}");
