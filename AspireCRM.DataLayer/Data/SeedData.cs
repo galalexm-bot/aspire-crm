@@ -20,7 +20,7 @@ public static class SeedData
     private static async Task SeedDefaultAdmin(AspireCRMDbContext context, UserManager<ApplicationUser>? userManager, long tenantId)
     {
         if (userManager is null) return;
-        if (await context.Users.AnyAsync(u => u.TenantId == tenantId)) return;
+        if (await userManager.FindByEmailAsync("admin@aspirecrm.local") is not null) return;
 
         var admin = new ApplicationUser
         {

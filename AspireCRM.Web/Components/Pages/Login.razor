@@ -20,7 +20,7 @@
 
                     <div class="mb-3">
                         <label class="form-label">Email</label>
-                        <InputText @bind-Value="Model.Email" class="form-control" />
+                        <InputText @bind-Value="Model.Email" @bind-Value:event="oninput" class="form-control" />
                     </div>
 
                     <div class="mb-3">
