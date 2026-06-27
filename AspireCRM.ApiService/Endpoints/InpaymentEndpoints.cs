@@ -1,6 +1,7 @@
 using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Payments;
+using AspireCRM.ApiService.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.ApiService.Endpoints;

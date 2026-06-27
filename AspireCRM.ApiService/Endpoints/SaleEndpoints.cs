@@ -3,6 +3,7 @@ using AspireCRM.DataLayer.Repositories;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Sales;
+using AspireCRM.ApiService.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace AspireCRM.ApiService.Endpoints;

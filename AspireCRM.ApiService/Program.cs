@@ -122,6 +122,7 @@ app.MapAttachmentEndpoints();
 app.MapTaskEndpoints();
 app.MapCommentEndpoints();
 app.MapAuditLogEndpoints();
+app.MapSettingsEndpoints();
 app.MapSearchEndpoints();
 
 app.MapDefaultEndpoints();

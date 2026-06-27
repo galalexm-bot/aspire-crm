@@ -1,0 +1,125 @@
+@page "/admin"
+@rendermode InteractiveServer
+@using AspireCRM.Web.Models
+@using AspireCRM.Domain.Sales
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Настройки CRM</PageTitle>
+
+<h1>Настройки CRM</h1>
+
+@if (isLoading)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    @if (!string.IsNullOrEmpty(success))
+    {
+        <div class="alert alert-success">@success</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>Основные настройки</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Название компании</label>
+                    <input @bind="settings.CompanyName" class="form-control" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Валюта по умолчанию</label>
+                    <select @bind="settings.DefaultCurrencyId" class="form-select">
+                        <option value="">-- Не выбрано --</option>
+                        @foreach (var c in currencies)
+                        {
+                            <option value="@c.Id">@c.Name (@c.Code)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Страна по умолчанию</label>
+                <input @bind="settings.DefaultCountry" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Адрес компании</label>
+                <textarea @bind="settings.CompanyAddress" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Телефон</label>
+                    <input @bind="settings.CompanyPhone" class="form-control" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Email</label>
+                    <input @bind="settings.CompanyEmail" class="form-control" />
+                </div>
+            </div>
+            <div class="mb-3">
+                <button class="btn btn-primary me-2" @onclick="Save" disabled="@isSaving">Сохранить</button>
+                <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/")'>На главную</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private CrmSettingsDto settings = new();
+    private List<Currency> currencies = [];
+    private bool isLoading = true;
+    private bool isSaving;
+    private string? error;
+    private string? success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            currencies = await Api.GetListAsync<Currency>("/api/lookups/currencies");
+            settings = await Api.GetSettingsAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Save()
+    {
+        isSaving = true;
+        error = null;
+        success = null;
+        try
+        {
+            var request = new UpdateCrmSettingsRequest
+            {
+                DefaultCurrencyId = settings.DefaultCurrencyId,
+                DefaultCountry = settings.DefaultCountry,
+                CompanyName = settings.CompanyName,
+                CompanyAddress = settings.CompanyAddress,
+                CompanyPhone = settings.CompanyPhone,
+                CompanyEmail = settings.CompanyEmail,
+            };
+            await Api.UpdateSettingsAsync(request);
+            success = "Настройки сохранены";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

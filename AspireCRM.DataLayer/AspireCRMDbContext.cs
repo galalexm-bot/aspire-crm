@@ -76,6 +76,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<CrmSettings> CrmSettings => Set<CrmSettings>();
+
     public override int SaveChanges()
     {
         ApplyAudit();
@@ -669,6 +671,23 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
 
             e.HasIndex(a => new { a.EntityType, a.EntityId });
             e.HasIndex(a => a.ChangedAt);
+        });
+    }
+
+    private static void ConfigureCrmSettings(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CrmSettings>(e =>
+        {
+            e.ToTable("CrmSettings");
+            e.Property(s => s.DefaultCountry).HasMaxLength(256);
+            e.Property(s => s.CompanyName).HasMaxLength(512);
+            e.Property(s => s.CompanyAddress).HasMaxLength(1024);
+            e.Property(s => s.CompanyPhone).HasMaxLength(64);
+            e.Property(s => s.CompanyEmail).HasMaxLength(256);
+            e.HasOne(s => s.DefaultCurrency)
+                .WithMany()
+                .HasForeignKey(s => s.DefaultCurrencyId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

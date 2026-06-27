@@ -494,4 +494,10 @@ public class CrmApiClient(HttpClient http)
 
     public Task<List<AuditLogDto>> GetAuditLogAsync(string entityType, long entityId) =>
         GetListAsync<AuditLogDto>($"/api/audit/{entityType}/{entityId}");
+
+    public Task<CrmSettingsDto?> GetSettingsAsync() =>
+        http.GetFromJsonAsync<CrmSettingsDto>("/api/settings");
+
+    public Task UpdateSettingsAsync(UpdateCrmSettingsRequest request) =>
+        http.PutAsJsonAsync("/api/settings", request);
 }
