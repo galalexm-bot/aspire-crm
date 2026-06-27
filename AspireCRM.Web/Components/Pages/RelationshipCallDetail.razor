@@ -1,0 +1,279 @@
+﻿@page "/relationships/call/{Id:long?}"
+@rendermode InteractiveServer
+@using AspireCRM.Web.Models
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>@(IsCreate ? "Новый звонок" : "Звонок")</PageTitle>
+
+<h1>@(IsCreate ? "Новый звонок" : "Звонок")</h1>
+
+@if (!IsCreate && relationship is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    @if (!string.IsNullOrEmpty(success))
+    {
+        <div class="alert alert-success">@success</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>Основная информация</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Тема</label>
+                    <input @bind="theme" class="form-control" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Приоритет</label>
+                    <select @bind="priority" class="form-select">
+                        <option value="High">Высокий</option>
+                        <option value="Medium">Средний</option>
+                        <option value="Low">Низкий</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Тип звонка</label>
+                    <select @bind="callType" class="form-select">
+                        <option value="Input">Входящий</option>
+                        <option value="Output">Исходящий</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Дата начала</label>
+                    <input @bind="startDate" class="form-control" type="datetime-local" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Дата окончания</label>
+                    <input @bind="endDate" class="form-control" type="datetime-local" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Контрагент</label>
+                    <select @bind="contractorId" class="form-select">
+                        <option value="">-- Не выбрано --</option>
+                        @foreach (var c in contractors)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Сделка</label>
+                    <select @bind="saleId" class="form-select">
+                        <option value="">-- Не выбрано --</option>
+                        @foreach (var s in sales)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Контакт</label>
+                    <select @bind="contactId" class="form-select">
+                        <option value="">-- Не выбрано --</option>
+                        @foreach (var c in contacts)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Описание</label>
+                <textarea @bind="description" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <button class="btn btn-primary me-2" @onclick="Save" disabled="@isLoading">Сохранить</button>
+                <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/relationships")'>Назад</button>
+            </div>
+        </div>
+    </div>
+
+    @if (!IsCreate)
+    {
+        <div class="card mb-3">
+            <div class="card-header"><h5>Действия</h5></div>
+            <div class="card-body">
+                @if (relationship?.Completed != true)
+                {
+                    <button class="btn btn-success me-2" @onclick="Complete" disabled="@isLoading">Отметить выполненным</button>
+                }
+                else
+                {
+                    <span class="badge bg-success fs-6">Выполнено @(relationship?.DoneDate?.ToShortDateString() ?? "")</span>
+                }
+                <button class="btn btn-danger" @onclick="DeleteItem" disabled="@isLoading">Удалить</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long? Id { get; set; }
+    private bool IsCreate => !Id.HasValue || Id.Value == 0;
+
+    private Relationship? relationship;
+    private bool isLoading;
+    private string? error;
+    private string? success;
+
+    private string theme = string.Empty;
+    private string? description;
+    private string priority = "Medium";
+    private DateTime startDate = DateTime.Now;
+    private DateTime endDate = DateTime.Now.AddHours(1);
+    private string callType = "Input";
+    private long? contractorId;
+    private long? saleId;
+    private long? contactId;
+    private long? leadId;
+
+    private List<Contractor> contractors = [];
+    private List<Sale> sales = [];
+    private List<Contact> contacts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadLookups(), LoadRelationship());
+    }
+
+    private async Task LoadRelationship()
+    {
+        if (IsCreate || !Id.HasValue) return;
+        try
+        {
+            relationship = await Api.GetRelationshipAsync(Id.Value);
+            if (relationship != null)
+            {
+                theme = relationship.Theme;
+                description = relationship.Description;
+                priority = relationship.Priority.ToString();
+                startDate = relationship.StartDate;
+                endDate = relationship.EndDate;
+                contractorId = relationship.ContractorId;
+                saleId = relationship.SaleId;
+                contactId = relationship.ContactId;
+                if (relationship is RelationshipCall call)
+                    callType = call.Type.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+    }
+
+    private async Task LoadLookups()
+    {
+        try { contractors = await Api.GetContractorsListAsync(); } catch { }
+        try { sales = await Api.GetSalesAsync(); } catch { }
+        try { contacts = await Api.GetContactsAsync(); } catch { }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(theme))
+        {
+            error = "Тема обязательна";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        try
+        {
+            if (IsCreate)
+            {
+                var req = new CreateRelationshipRequest
+                {
+                    Type = "Call",
+                    Theme = theme,
+                    Description = description,
+                    Priority = priority,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    ContractorId = contractorId,
+                    SaleId = saleId,
+                    ContactId = contactId,
+                    CallType = callType
+                };
+                var created = await Api.CreateRelationshipAsync(req);
+                Nav.NavigateTo($"/relationships/call/{created.Id}");
+            }
+            else
+            {
+                var req = new UpdateRelationshipRequest
+                {
+                    Theme = theme,
+                    Description = description,
+                    Priority = priority,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    ContractorId = contractorId,
+                    SaleId = saleId,
+                    ContactId = contactId,
+                    CallType = callType
+                };
+                await Api.UpdateRelationshipAsync(Id!.Value, req);
+                success = "Сохранено";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Complete()
+    {
+        if (IsCreate || !Id.HasValue) return;
+        isLoading = true;
+        try
+        {
+            await Api.CompleteRelationshipAsync(Id.Value);
+            relationship = await Api.GetRelationshipAsync(Id.Value);
+            success = "Отмечено выполненным";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteItem()
+    {
+        if (IsCreate || !Id.HasValue) return;
+        try
+        {
+            await Api.DeleteRelationshipAsync(Id.Value);
+            Nav.NavigateTo("/relationships");
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+    }
+}

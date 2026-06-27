@@ -1,0 +1,116 @@
+@page "/relationships"
+@rendermode InteractiveServer
+@using AspireCRM.Web.Models
+@inject CrmApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Взаимоотношения</PageTitle>
+
+<h1>Взаимоотношения</h1>
+
+<p>
+    <a href="/relationships/call/0" class="btn btn-primary">+ Создать звонок</a>
+    <a href="/relationships/mail/0" class="btn btn-primary">+ Создать письмо</a>
+    <a href="/relationships/meeting/0" class="btn btn-primary">+ Создать встречу</a>
+</p>
+
+@if (response is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (response.Items.Count == 0)
+{
+    <p class="text-muted">Нет взаимоотношений</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Тема</th>
+                <th>Тип</th>
+                <th>Приоритет</th>
+                <th>Дата начала</th>
+                <th>Дата окончания</th>
+                <th>Статус</th>
+                <th>Контрагент / Сделка</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in response.Items)
+            {
+                <tr>
+                    <td>@item.Theme</td>
+                    <td><span class="badge @TypeBadge(item.RelationshipType)">@TypeDisplay(item.RelationshipType)</span></td>
+                    <td><span class="badge @PriorityBadge(item.Priority)">@item.Priority</span></td>
+                    <td>@item.StartDate.ToShortDateString()</td>
+                    <td>@item.EndDate.ToShortDateString()</td>
+                    <td>
+                        @if (item.Completed == true)
+                        {
+                            <span class="badge bg-success">Выполнено</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Активно</span>
+                        }
+                    </td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(item.ContractorName))
+                        {
+                            <div><small>К: @item.ContractorName</small></div>
+                        }
+                        @if (!string.IsNullOrEmpty(item.SaleName))
+                        {
+                            <div><small>С: @item.SaleName</small></div>
+                        }
+                    </td>
+                    <td>
+                        <a href="/relationships/@item.RelationshipType.ToLowerInvariant()/@item.Id" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(item.Id)">Удалить</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private RelationshipListResponse? response;
+
+    protected override async Task OnInitializedAsync()
+    {
+        response = await Api.GetRelationshipsAsync(1, 100);
+    }
+
+    private async Task Delete(long id)
+    {
+        await Api.DeleteRelationshipAsync(id);
+        response = await Api.GetRelationshipsAsync(1, 100);
+    }
+
+    private string TypeDisplay(string type) => type switch
+    {
+        "Call" => "Звонок",
+        "Mail" => "Письмо",
+        "Meeting" => "Встреча",
+        _ => type
+    };
+
+    private string TypeBadge(string type) => type switch
+    {
+        "Call" => "bg-primary",
+        "Mail" => "bg-info text-dark",
+        "Meeting" => "bg-success",
+        _ => "bg-secondary"
+    };
+
+    private string PriorityBadge(string priority) => priority switch
+    {
+        "High" => "bg-danger",
+        "Medium" => "bg-warning text-dark",
+        "Low" => "bg-secondary",
+        _ => "bg-light"
+    };
+}

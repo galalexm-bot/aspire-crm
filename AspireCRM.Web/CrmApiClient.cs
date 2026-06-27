@@ -209,16 +209,44 @@ public class CrmApiClient(HttpClient http)
     public Task UpdateCategoryAsync(long id, Category c) => UpdateAsync("/api/categories", id, c);
     public Task DeleteCategoryAsync(long id) => DeleteAsync("/api/categories", id);
 
-    public Task<List<Relationship>> GetRelationshipsAsync(long? leadId = null)
+    public async Task<RelationshipListResponse?> GetRelationshipsAsync(int page = 1, int pageSize = 20,
+        string? type = null, long? leadId = null, long? contractorId = null, long? saleId = null)
     {
-        var url = leadId.HasValue ? $"/api/relationships?leadId={leadId}" : "/api/relationships";
-        return GetListAsync<Relationship>(url);
+        var query = $"/api/relationships?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrEmpty(type)) query += $"&type={type}";
+        if (leadId.HasValue) query += $"&leadId={leadId}";
+        if (contractorId.HasValue) query += $"&contractorId={contractorId}";
+        if (saleId.HasValue) query += $"&saleId={saleId}";
+        return await http.GetFromJsonAsync<RelationshipListResponse>(query);
     }
 
-    public Task<Relationship?> GetRelationshipAsync(long id) => GetByIdAsync<Relationship>("/api/relationships", id);
-    public Task<Relationship> CreateRelationshipAsync(Relationship r) => CreateAsync("/api/relationships", r);
-    public Task UpdateRelationshipAsync(long id, Relationship r) => UpdateAsync("/api/relationships", id, r);
-    public Task DeleteRelationshipAsync(long id) => DeleteAsync("/api/relationships", id);
+    public Task<Relationship?> GetRelationshipAsync(long id) =>
+        http.GetFromJsonAsync<Relationship>($"/api/relationships/{id}");
+
+    public async Task<Relationship> CreateRelationshipAsync(CreateRelationshipRequest r)
+    {
+        var response = await http.PostAsJsonAsync("/api/relationships", r);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<Relationship>())!;
+    }
+
+    public async Task UpdateRelationshipAsync(long id, UpdateRelationshipRequest r)
+    {
+        var response = await http.PutAsJsonAsync($"/api/relationships/{id}", r);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteRelationshipAsync(long id)
+    {
+        var response = await http.DeleteAsync($"/api/relationships/{id}");
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task CompleteRelationshipAsync(long id)
+    {
+        var response = await http.PostAsync($"/api/relationships/{id}/complete", null);
+        response.EnsureSuccessStatusCode();
+    }
 
     public Task<List<T>> GetLookupAsync<T>(string name) => GetListAsync<T>($"/api/lookups/{name}");
 
