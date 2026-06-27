@@ -1,0 +1,162 @@
+@page "/sale-stages"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+
+<PageTitle>Этапы продаж</PageTitle>
+
+<h1>Этапы продаж</h1>
+
+<p>
+    <button class="btn btn-primary" @onclick="Add">+ Добавить</button>
+</p>
+
+@if (items is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th style="width:40px">#</th>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Порядок</th>
+                <th style="width:100px"></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items.OrderBy(i => i.SortOrder))
+            {
+                <tr draggable="true"
+                    @ondragstart="() => DragStart(item)"
+                    @ondragover="() => DragOver(item)"
+                    @ondrop="() => Drop(item)"
+                    @ondragend="DragEnd">
+                    <td class="drag-handle">⠿</td>
+                    <td>@item.Id</td>
+                    <td>
+                        @if (editingId == item.Id)
+                        {
+                            <input @bind="editName" class="form-control form-control-sm" @onkeydown="HandleKeyDown" />
+                        }
+                        else
+                        {
+                            <span class="editable" @onclick="() => StartEdit(item)">@item.Name</span>
+                        }
+                    </td>
+                    <td>@item.SortOrder</td>
+                    <td>
+                        @if (editingId == item.Id)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => SaveEdit(item)">Сохранить</button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Отмена</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(item)">Удалить</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<SaleStage>? items;
+    private long editingId;
+    private string editName = string.Empty;
+    private SaleStage? dragSource;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        items = await Api.GetSaleStagesAsync();
+    }
+
+    private async Task Add()
+    {
+        var maxOrder = items is not null && items.Count != 0 ? items.Max(i => i.SortOrder) : 0;
+        var created = await Api.CreateSaleStageAsync(new SaleStage { Name = "Новый этап", SortOrder = maxOrder + 1 });
+        await Load();
+        StartEdit(created);
+    }
+
+    private void StartEdit(SaleStage item)
+    {
+        editingId = item.Id;
+        editName = item.Name;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = 0;
+        editName = string.Empty;
+    }
+
+    private async Task SaveEdit(SaleStage item)
+    {
+        item.Name = editName;
+        await Api.UpdateSaleStageAsync(item.Id, item);
+        editingId = 0;
+        editName = string.Empty;
+        await Load();
+    }
+
+    private async Task Delete(SaleStage item)
+    {
+        await Api.DeleteSaleStageAsync(item.Id);
+        await Load();
+    }
+
+    private void DragStart(SaleStage item)
+    {
+        dragSource = item;
+    }
+
+    private void DragOver(SaleStage item)
+    {
+        if (dragSource is null || dragSource.Id == item.Id) return;
+        var sorted = items!.OrderBy(i => i.SortOrder).ToList();
+        var sourceIndex = sorted.IndexOf(dragSource);
+        var targetIndex = sorted.IndexOf(item);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+        sorted.RemoveAt(sourceIndex);
+        sorted.Insert(targetIndex, dragSource);
+        for (int i = 0; i < sorted.Count; i++)
+            sorted[i].SortOrder = i + 1;
+    }
+
+    private async Task Drop(SaleStage item)
+    {
+        if (dragSource is null) return;
+        await Api.ReorderSaleStagesAsync(items!);
+        dragSource = null;
+        await Load();
+    }
+
+    private void DragEnd()
+    {
+        dragSource = null;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            var item = items?.FirstOrDefault(i => i.Id == editingId);
+            if (item is not null) await SaveEdit(item);
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelEdit();
+        }
+    }
+}

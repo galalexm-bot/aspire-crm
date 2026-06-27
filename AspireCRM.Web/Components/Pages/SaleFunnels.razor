@@ -1,0 +1,121 @@
+@page "/sale-funnels"
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+
+<PageTitle>Воронки продаж</PageTitle>
+
+<h1>Воронки продаж</h1>
+
+<p>
+    <button class="btn btn-primary" @onclick="Add">+ Добавить</button>
+</p>
+
+@if (items is null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td>
+                        @if (editingId == item.Id)
+                        {
+                            <input @bind="editName" class="form-control form-control-sm" @onkeydown="HandleKeyDown" @ref="editInput" />
+                        }
+                        else
+                        {
+                            <span class="editable" @onclick="() => StartEdit(item)">@item.Name</span>
+                        }
+                    </td>
+                    <td>
+                        @if (editingId == item.Id)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => SaveEdit(item)">Сохранить</button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Отмена</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(item)">Удалить</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<SaleFunnel>? items;
+    private long editingId;
+    private string editName = string.Empty;
+    private ElementReference editInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        items = await Api.GetSaleFunnelsAsync();
+    }
+
+    private async Task Add()
+    {
+        var created = await Api.CreateSaleFunnelAsync(new SaleFunnel { Name = "Новая воронка" });
+        await Load();
+        StartEdit(created);
+    }
+
+    private void StartEdit(SaleFunnel item)
+    {
+        editingId = item.Id;
+        editName = item.Name;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = 0;
+        editName = string.Empty;
+    }
+
+    private async Task SaveEdit(SaleFunnel item)
+    {
+        item.Name = editName;
+        await Api.UpdateSaleFunnelAsync(item.Id, item);
+        editingId = 0;
+        editName = string.Empty;
+        await Load();
+    }
+
+    private async Task Delete(SaleFunnel item)
+    {
+        await Api.DeleteSaleFunnelAsync(item.Id);
+        await Load();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            var item = items?.FirstOrDefault(i => i.Id == editingId);
+            if (item is not null) await SaveEdit(item);
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelEdit();
+        }
+    }
+}

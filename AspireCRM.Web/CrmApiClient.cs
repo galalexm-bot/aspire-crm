@@ -204,6 +204,29 @@ public class CrmApiClient(HttpClient http)
 
     public Task<List<T>> GetLookupAsync<T>(string name) => GetListAsync<T>($"/api/lookups/{name}");
 
+    public Task<List<SaleFunnel>> GetSaleFunnelsAsync() => GetListAsync<SaleFunnel>("/api/sale-funnels");
+    public Task<SaleFunnel?> GetSaleFunnelAsync(long id) => GetByIdAsync<SaleFunnel>("/api/sale-funnels", id);
+    public Task<SaleFunnel> CreateSaleFunnelAsync(SaleFunnel e) => CreateAsync("/api/sale-funnels", e);
+    public Task UpdateSaleFunnelAsync(long id, SaleFunnel e) => UpdateAsync("/api/sale-funnels", id, e);
+    public Task DeleteSaleFunnelAsync(long id) => DeleteAsync("/api/sale-funnels", id);
+
+    public Task<List<SaleStage>> GetSaleStagesAsync() => GetListAsync<SaleStage>("/api/sale-stages");
+    public Task<SaleStage?> GetSaleStageAsync(long id) => GetByIdAsync<SaleStage>("/api/sale-stages", id);
+    public Task<SaleStage> CreateSaleStageAsync(SaleStage e) => CreateAsync("/api/sale-stages", e);
+    public Task UpdateSaleStageAsync(long id, SaleStage e) => UpdateAsync("/api/sale-stages", id, e);
+    public Task DeleteSaleStageAsync(long id) => DeleteAsync("/api/sale-stages", id);
+    public async Task ReorderSaleStagesAsync(List<SaleStage> items)
+    {
+        var response = await http.PutAsJsonAsync("/api/sale-stages/reorder", items);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public Task<List<SaleType>> GetSaleTypesAsync() => GetListAsync<SaleType>("/api/sale-types");
+    public Task<SaleType?> GetSaleTypeAsync(long id) => GetByIdAsync<SaleType>("/api/sale-types", id);
+    public Task<SaleType> CreateSaleTypeAsync(SaleType e) => CreateAsync("/api/sale-types", e);
+    public Task UpdateSaleTypeAsync(long id, SaleType e) => UpdateAsync("/api/sale-types", id, e);
+    public Task DeleteSaleTypeAsync(long id) => DeleteAsync("/api/sale-types", id);
+
     public async Task BeginLeadAsync(long id) =>
         await http.PostAsync($"/api/leads/{id}/begin", null);
 

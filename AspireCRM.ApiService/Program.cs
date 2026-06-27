@@ -98,6 +98,7 @@ app.MapInpaymentEndpoints();
 app.MapProductEndpoints();
 app.MapCategoryEndpoints();
 app.MapRelationshipEndpoints();
+app.MapSaleLookupEndpoints();
 
 app.MapDefaultEndpoints();
 
