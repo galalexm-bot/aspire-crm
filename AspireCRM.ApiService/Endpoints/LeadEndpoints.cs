@@ -69,27 +69,31 @@ public static class LeadEndpoints
             return Results.NoContent();
         }).RequireCategoryPermission(CategoryPermissionLevel.Delete);
 
-        api.MapPost("/{id:long}/begin", async (long id, HttpContext http, IRepository<Lead> repo) =>
+        api.MapPost("/{id:long}/begin", async (long id, HttpContext http, IRepository<Lead> repo, AuditService auditService) =>
         {
             var lead = await repo.GetByIdAsync(id);
             if (lead is null) return Results.NotFound();
             if (lead.Status == LeadStatus.InHand)
                 return Results.BadRequest("Лид уже имеет статус \"В работе\"");
 
+            var oldStatus = lead.Status.ToString();
             lead.Status = LeadStatus.InHand;
             lead.InHandDate = DateTime.UtcNow;
             lead.ChangeDate = DateTime.UtcNow;
             lead.ChangeAuthorId = GetUserId(http);
             await repo.UpdateAsync(lead);
 
+            await auditService.LogAsync("Lead", id, "Status", oldStatus, LeadStatus.InHand.ToString(), GetUserId(http));
+
             return Results.Ok(lead);
         });
 
-        api.MapPost("/{id:long}/fail", async (long id, LeadStatusChangeRequest req, HttpContext http, IRepository<Lead> repo, IRepository<Comment> commentRepo) =>
+        api.MapPost("/{id:long}/fail", async (long id, LeadStatusChangeRequest req, HttpContext http, IRepository<Lead> repo, IRepository<Comment> commentRepo, AuditService auditService) =>
         {
             var lead = await repo.GetByIdAsync(id);
             if (lead is null) return Results.NotFound();
 
+            var oldStatus = lead.Status.ToString();
             lead.Status = LeadStatus.Unqualified;
             lead.ChangeDate = DateTime.UtcNow;
             lead.ChangeAuthorId = GetUserId(http);
@@ -107,20 +111,25 @@ public static class LeadEndpoints
                 await commentRepo.AddAsync(comment);
             }
 
+            await auditService.LogAsync("Lead", id, "Status", oldStatus, LeadStatus.Unqualified.ToString(), GetUserId(http), req.Comment);
+
             return Results.Ok(lead);
         });
 
-        api.MapPost("/{id:long}/conversation-not-start", async (long id, HttpContext http, IRepository<Lead> repo) =>
+        api.MapPost("/{id:long}/conversation-not-start", async (long id, HttpContext http, IRepository<Lead> repo, AuditService auditService) =>
         {
             var lead = await repo.GetByIdAsync(id);
             if (lead is null) return Results.NotFound();
             if (lead.Status == LeadStatus.ConversationNotStart)
                 return Results.BadRequest("Лид уже имеет статус \"Разговор не состоялся\"");
 
+            var oldStatus = lead.Status.ToString();
             lead.Status = LeadStatus.ConversationNotStart;
             lead.ChangeDate = DateTime.UtcNow;
             lead.ChangeAuthorId = GetUserId(http);
             await repo.UpdateAsync(lead);
+
+            await auditService.LogAsync("Lead", id, "Status", oldStatus, LeadStatus.ConversationNotStart.ToString(), GetUserId(http));
 
             return Results.Ok(lead);
         });
@@ -284,7 +293,7 @@ public static class LeadEndpoints
         api.MapPost("/{id:long}/convert", async (long id, LeadConversionRequest req, HttpContext http,
             IRepository<Lead> leadRepo, IRepository<Contractor> contractorRepo, IRepository<Sale> saleRepo,
             IRepository<Relationship> relRepo, IRepository<Contact> contactRepo,
-            IRepository<Comment> commentRepo) =>
+            IRepository<Comment> commentRepo, AuditService auditService) =>
         {
             var lead = await leadRepo.GetByIdAsync(id);
             if (lead is null) return Results.NotFound();
@@ -419,6 +428,7 @@ public static class LeadEndpoints
                 lead.Comments.Add(comment);
             }
 
+            var oldStatus = lead.Status.ToString();
             lead.Status = LeadStatus.Qualified;
             lead.ContractorId = contractor.Id;
             lead.ConvertDate = DateTime.UtcNow;
@@ -427,6 +437,8 @@ public static class LeadEndpoints
             if (sale is not null)
                 lead.SaleId = sale.Id;
             await leadRepo.UpdateAsync(lead);
+
+            await auditService.LogAsync("Lead", id, "Status", oldStatus, LeadStatus.Qualified.ToString(), userId, req.Comment);
 
             return Results.Ok(new LeadConversionResult(lead.Id, contractor.Id, sale?.Id, relationship?.Id));
         });

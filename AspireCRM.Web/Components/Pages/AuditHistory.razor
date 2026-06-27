@@ -1,0 +1,91 @@
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+@using AspireCRM.Web.Models
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h5 class="mb-0">История изменений</h5>
+    </div>
+    <div class="card-body">
+        @if (isLoading && logs is null)
+        {
+            <p><em>Загрузка...</em></p>
+        }
+        else if (logs is not null && logs.Count == 0)
+        {
+            <p class="text-muted mb-0">Нет записей</p>
+        }
+        else if (logs is not null)
+        {
+            <div class="list-group">
+                @foreach (var log in logs)
+                {
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <strong>@log.ChangedByName</strong>
+                            <small class="text-muted">@log.ChangedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                        </div>
+                        <div class="mt-1">
+                            <span class="badge bg-secondary me-2">@DisplayField(log.Field)</span>
+                            @if (!string.IsNullOrEmpty(log.OldValue))
+                            {
+                                <span class="text-muted text-decoration-line-through me-2">@log.OldValue</span>
+                            }
+                            @if (!string.IsNullOrEmpty(log.NewValue))
+                            {
+                                <span class="text-success fw-bold">@log.NewValue</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(log.Comment))
+                        {
+                            <p class="mb-0 mt-1 small text-muted">@log.Comment</p>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger mt-2 mb-0">@error</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string EntityType { get; set; } = string.Empty;
+    [Parameter] public long EntityId { get; set; }
+
+    private List<AuditLogDto>? logs;
+    private bool isLoading;
+    private string? error;
+
+    protected override async Task OnInitializedAsync() => await LoadLogs();
+
+    private async Task LoadLogs()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            logs = await Api.GetAuditLogAsync(EntityType, EntityId);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string DisplayField(string field) => field switch
+    {
+        "Status" => "Статус",
+        "Stage" => "Этап",
+        "SaleStatus" => "Статус сделки",
+        "SaleStage" => "Этап сделки",
+        _ => field
+    };
+}

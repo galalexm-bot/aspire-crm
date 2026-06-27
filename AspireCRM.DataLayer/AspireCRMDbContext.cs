@@ -1,5 +1,6 @@
 using AspireCRM.Domain.Tasks;
 using AspireCRM.Domain.Attachments;
+using AspireCRM.Domain.Audit;
 using AspireCRM.Domain.CategoryRules;
 using AspireCRM.Domain.Common;
 using AspireCRM.Domain.Contractors;
@@ -73,6 +74,8 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
 
     public DbSet<CrmAttachment> Attachments => Set<CrmAttachment>();
 
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
     public override int SaveChanges()
     {
         ApplyAudit();
@@ -136,6 +139,7 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
         ConfigureTenant(modelBuilder);
         ConfigureIdentityTables(modelBuilder);
         ConfigureAttachment(modelBuilder);
+        ConfigureAuditLog(modelBuilder);
     }
 
     private void ConfigureBaseEntity(ModelBuilder modelBuilder)
@@ -643,6 +647,28 @@ public class AspireCRMDbContext : IdentityDbContext<ApplicationUser, IdentityRol
             e.Property(a => a.EntityId).IsRequired();
 
             e.HasIndex(a => new { a.EntityType, a.EntityId });
+        });
+    }
+
+    private static void ConfigureAuditLog(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AuditLog>(e =>
+        {
+            e.ToTable("AuditLogs");
+            e.HasKey(a => a.Id);
+            e.Property(a => a.Id).ValueGeneratedOnAdd();
+            e.Property(a => a.TenantId).IsRequired();
+            e.Property(a => a.EntityType).IsRequired().HasMaxLength(256);
+            e.Property(a => a.EntityId).IsRequired();
+            e.Property(a => a.Field).IsRequired().HasMaxLength(256);
+            e.Property(a => a.OldValue).HasMaxLength(4000);
+            e.Property(a => a.NewValue).HasMaxLength(4000);
+            e.Property(a => a.ChangedById).IsRequired();
+            e.Property(a => a.ChangedAt).IsRequired();
+            e.Property(a => a.Comment).HasMaxLength(4000);
+
+            e.HasIndex(a => new { a.EntityType, a.EntityId });
+            e.HasIndex(a => a.ChangedAt);
         });
     }
 }

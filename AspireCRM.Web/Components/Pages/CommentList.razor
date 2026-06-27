@@ -1,0 +1,121 @@
+@rendermode InteractiveServer
+@inject CrmApiClient Api
+
+<div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Комментарии</h5>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => showNewForm = true" disabled="@(showNewForm || isLoading)">
+            + Добавить
+        </button>
+    </div>
+    <div class="card-body">
+        @if (isLoading && comments is null)
+        {
+            <p><em>Загрузка...</em></p>
+        }
+        else
+        {
+            @if (showNewForm)
+            {
+                <div class="mb-3 p-3 border rounded">
+                    <div class="mb-2">
+                        <textarea @bind="newText" class="form-control" rows="3" placeholder="Текст комментария"></textarea>
+                    </div>
+                    <div>
+                        <button class="btn btn-success btn-sm me-2" @onclick="CreateComment" disabled="@isLoading || string.IsNullOrWhiteSpace(newText)">
+                            Сохранить
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="CancelNew">Отмена</button>
+                    </div>
+                </div>
+            }
+
+            @if (comments is not null && comments.Count == 0 && !showNewForm)
+            {
+                <p class="text-muted mb-0">Нет комментариев</p>
+            }
+
+            @if (comments is not null)
+            {
+                <div class="list-group">
+                    @foreach (var comment in comments)
+                    {
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>@comment.AuthorName</strong>
+                                <small class="text-muted">@comment.CreationDate.ToString("dd.MM.yyyy HH:mm")</small>
+                            </div>
+                            <p class="mb-1 mt-1">@comment.Text</p>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger mt-2 mb-0">@error</div>
+            }
+        }
+    </div>
+</div>
+
+@using AspireCRM.Web.Models
+
+@code {
+    [Parameter] public string EntityType { get; set; } = string.Empty;
+    [Parameter] public long EntityId { get; set; }
+
+    private List<CommentDto>? comments;
+    private bool isLoading;
+    private bool showNewForm;
+    private string? error;
+
+    private string newText = "";
+
+    protected override async Task OnInitializedAsync() => await LoadComments();
+
+    private async Task LoadComments()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            comments = await Api.GetCommentsAsync(EntityType, EntityId);
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CancelNew()
+    {
+        showNewForm = false;
+        newText = "";
+    }
+
+    private async Task CreateComment()
+    {
+        if (string.IsNullOrWhiteSpace(newText)) return;
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.CreateCommentAsync(EntityType, EntityId, newText.Trim());
+            CancelNew();
+            await LoadComments();
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

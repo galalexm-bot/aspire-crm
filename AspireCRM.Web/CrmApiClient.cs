@@ -478,4 +478,20 @@ public class CrmApiClient(HttpClient http)
         var q = Uri.EscapeDataString(query);
         return await http.GetFromJsonAsync<SearchResponse>($"/api/search?q={q}&page={page}&pageSize={pageSize}") ?? new SearchResponse([], 0);
     }
+
+    public Task<List<CommentDto>> GetCommentsAsync(string entityType, long entityId) =>
+        GetListAsync<CommentDto>($"/api/comments/{entityType}/{entityId}");
+
+    public async Task<CommentDto> CreateCommentAsync(string entityType, long entityId, string text)
+    {
+        var response = await http.PostAsJsonAsync($"/api/comments/{entityType}/{entityId}", new CreateCommentRequest { Text = text });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CommentDto>())!;
+    }
+
+    public Task DeleteCommentAsync(long id) =>
+        DeleteAsync("/api/comments", id);
+
+    public Task<List<AuditLogDto>> GetAuditLogAsync(string entityType, long entityId) =>
+        GetListAsync<AuditLogDto>($"/api/audit/{entityType}/{entityId}");
 }

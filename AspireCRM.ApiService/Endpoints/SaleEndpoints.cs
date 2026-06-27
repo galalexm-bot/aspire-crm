@@ -149,7 +149,7 @@ public static class SaleEndpoints
         });
 
         api.MapPost("/{id:long}/change-stage", async (long id, SaleStageChangeRequest request, HttpContext http,
-            AspireCRMDbContext db, ITenantService tenantService, IRepository<Comment> commentRepo) =>
+            AspireCRMDbContext db, ITenantService tenantService, IRepository<Comment> commentRepo, AuditService auditService) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
@@ -163,6 +163,10 @@ public static class SaleEndpoints
                 .FirstOrDefaultAsync(s => s.Id == request.StageId && s.TenantId == tenantService.TenantId.Value && !s.IsDeleted);
 
             if (stage is null) return Results.NotFound("Этап не найден");
+
+            var oldStage = sale.SaleStageId.HasValue
+                ? await db.SaleStages.FirstOrDefaultAsync(s => s.Id == sale.SaleStageId.Value)
+                : null;
 
             sale.PreviousStageId = sale.SaleStageId;
             sale.SaleStageId = request.StageId;
@@ -183,11 +187,14 @@ public static class SaleEndpoints
             }
 
             await db.SaveChangesAsync();
+
+            await auditService.LogAsync("Sale", id, "SaleStage", oldStage?.Name, stage.Name, GetUserId(http), request.Comment);
+
             return Results.Ok(sale);
         });
 
         api.MapPost("/{id:long}/change-status", async (long id, SaleStatusChangeRequest request, HttpContext http,
-            AspireCRMDbContext db, ITenantService tenantService, IRepository<Comment> commentRepo) =>
+            AspireCRMDbContext db, ITenantService tenantService, IRepository<Comment> commentRepo, AuditService auditService) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
@@ -200,6 +207,7 @@ public static class SaleEndpoints
             if (!Enum.TryParse<SaleStatus>(request.Status, out var newStatus))
                 return Results.BadRequest("Некорректный статус");
 
+            var oldStatus = sale.SaleStatus.ToString();
             sale.SaleStatus = newStatus;
             sale.StatusChangeDate = DateTime.UtcNow;
             sale.UpdatedAt = DateTime.UtcNow;
@@ -218,6 +226,9 @@ public static class SaleEndpoints
             }
 
             await db.SaveChangesAsync();
+
+            await auditService.LogAsync("Sale", id, "SaleStatus", oldStatus, newStatus.ToString(), GetUserId(http), request.Comment);
+
             return Results.Ok(sale);
         });
 

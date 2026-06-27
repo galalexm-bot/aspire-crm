@@ -71,7 +71,7 @@ public static class InpaymentEndpoints
             return Results.NoContent();
         });
 
-        api.MapPost("/{id:long}/change-status", async (long id, InpaymentStatusChangeRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        api.MapPost("/{id:long}/change-status", async (long id, InpaymentStatusChangeRequest request, HttpContext http, AspireCRMDbContext db, ITenantService tenantService, AuditService auditService) =>
         {
             if (!tenantService.TenantId.HasValue)
                 return Results.Unauthorized();
@@ -84,12 +84,18 @@ public static class InpaymentEndpoints
             if (!Enum.TryParse<InpaymentStatus>(request.Status, out var newStatus))
                 return Results.BadRequest("Некорректный статус");
 
+            var oldStatus = inpayment.Status.ToString();
             inpayment.Status = newStatus;
             inpayment.ChangeStatusDate = DateTime.UtcNow;
             inpayment.ChangeStatusComment = request.Comment;
             inpayment.ChangeDate = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
+
+            var userIdClaim = http.User.FindFirst("userId")?.Value;
+            var userId = long.TryParse(userIdClaim, out var uid) ? uid : 0;
+            await auditService.LogAsync("Inpayment", id, "Status", oldStatus, newStatus.ToString(), userId, request.Comment);
+
             return Results.NoContent();
         });
 
