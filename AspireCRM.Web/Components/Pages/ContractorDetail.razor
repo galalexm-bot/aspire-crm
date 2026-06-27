@@ -194,7 +194,9 @@ else
     <div class="row">
         <div class="col-md-6 mb-3">
             <div class="card">
-                <div class="card-header"><h5>Юридический адрес</h5></div>
+                <div class="card-header"><h5 class="d-inline">Юридический адрес</h5>
+                    <button class="btn btn-sm btn-outline-success float-end" @onclick="SaveLegalAddress" disabled="@isLoading">Сохранить адрес</button>
+                </div>
                 <div class="card-body">
                     <div class="mb-2">
                         <label class="form-label">Страна</label>
@@ -231,7 +233,9 @@ else
         </div>
         <div class="col-md-6 mb-3">
             <div class="card">
-                <div class="card-header"><h5>Фактический адрес</h5></div>
+                <div class="card-header"><h5 class="d-inline">Фактический адрес</h5>
+                    <button class="btn btn-sm btn-outline-success float-end" @onclick="SavePostalAddress" disabled="@isLoading">Сохранить адрес</button>
+                </div>
                 <div class="card-body">
                     <div class="mb-2">
                         <label class="form-label">Страна</label>
@@ -595,6 +599,48 @@ else
 
             await Api.UpdateContractorWithDetailsAsync(Id, request);
             success = "Контрагент сохранен";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SaveLegalAddress()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            var dto = new AddressDto(legalCountry, legalCity, legalStreet, legalBuilding, legalApartment, legalZipCode, legalFullAddress);
+            await Api.UpdateLegalAddressAsync(Id, dto);
+            success = "Юридический адрес сохранен";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SavePostalAddress()
+    {
+        isLoading = true;
+        error = null;
+        success = null;
+        try
+        {
+            var dto = new AddressDto(postalCountry, postalCity, postalStreet, postalBuilding, postalApartment, postalZipCode, postalFullAddress);
+            await Api.UpdatePostalAddressAsync(Id, dto);
+            success = "Фактический адрес сохранен";
         }
         catch (Exception ex)
         {

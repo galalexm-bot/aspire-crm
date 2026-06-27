@@ -307,6 +307,114 @@ public static class ContractorEndpoints
             return Results.NoContent();
         });
 
+        api.MapGet("/{id:long}/addresses/legal", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var contractor = await db.Contractors
+                .Include(c => c.LegalAddress)
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
+
+            if (contractor is null) return Results.NotFound();
+            return contractor.LegalAddress is null ? Results.NotFound() : Results.Ok(contractor.LegalAddress);
+        });
+
+        api.MapPut("/{id:long}/addresses/legal", async (long id, AddressDto request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var contractor = await db.Contractors
+                .Include(c => c.LegalAddress)
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
+
+            if (contractor is null) return Results.NotFound();
+
+            if (contractor.LegalAddress is null)
+            {
+                contractor.LegalAddress = new Address
+                {
+                    Country = request.Country,
+                    City = request.City,
+                    Street = request.Street,
+                    Building = request.Building,
+                    Apartment = request.Apartment,
+                    ZipCode = request.ZipCode,
+                    FullAddress = request.FullAddress,
+                    TenantId = tenantService.TenantId.Value
+                };
+            }
+            else
+            {
+                contractor.LegalAddress.Country = request.Country;
+                contractor.LegalAddress.City = request.City;
+                contractor.LegalAddress.Street = request.Street;
+                contractor.LegalAddress.Building = request.Building;
+                contractor.LegalAddress.Apartment = request.Apartment;
+                contractor.LegalAddress.ZipCode = request.ZipCode;
+                contractor.LegalAddress.FullAddress = request.FullAddress;
+            }
+
+            contractor.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
+        api.MapGet("/{id:long}/addresses/postal", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var contractor = await db.Contractors
+                .Include(c => c.PostalAddress)
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
+
+            if (contractor is null) return Results.NotFound();
+            return contractor.PostalAddress is null ? Results.NotFound() : Results.Ok(contractor.PostalAddress);
+        });
+
+        api.MapPut("/{id:long}/addresses/postal", async (long id, AddressDto request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var contractor = await db.Contractors
+                .Include(c => c.PostalAddress)
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantService.TenantId.Value && !c.IsDeleted);
+
+            if (contractor is null) return Results.NotFound();
+
+            if (contractor.PostalAddress is null)
+            {
+                contractor.PostalAddress = new Address
+                {
+                    Country = request.Country,
+                    City = request.City,
+                    Street = request.Street,
+                    Building = request.Building,
+                    Apartment = request.Apartment,
+                    ZipCode = request.ZipCode,
+                    FullAddress = request.FullAddress,
+                    TenantId = tenantService.TenantId.Value
+                };
+            }
+            else
+            {
+                contractor.PostalAddress.Country = request.Country;
+                contractor.PostalAddress.City = request.City;
+                contractor.PostalAddress.Street = request.Street;
+                contractor.PostalAddress.Building = request.Building;
+                contractor.PostalAddress.Apartment = request.Apartment;
+                contractor.PostalAddress.ZipCode = request.ZipCode;
+                contractor.PostalAddress.FullAddress = request.FullAddress;
+            }
+
+            contractor.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
         api.MapGet("/{id:long}/bank-accounts", async (long id, AspireCRMDbContext db, ITenantService tenantService) =>
         {
             if (!tenantService.TenantId.HasValue)

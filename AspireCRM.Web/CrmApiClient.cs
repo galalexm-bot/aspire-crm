@@ -77,6 +77,24 @@ public class CrmApiClient(HttpClient http)
     public async Task RemoveContractorPhoneAsync(long contractorId, long phoneId) =>
         await http.DeleteAsync($"/api/contractors/{contractorId}/phones/{phoneId}");
 
+    public async Task<Address?> GetLegalAddressAsync(long contractorId) =>
+        await http.GetFromJsonAsync<Address>($"/api/contractors/{contractorId}/addresses/legal");
+
+    public async Task UpdateLegalAddressAsync(long contractorId, AddressDto address)
+    {
+        var response = await http.PutAsJsonAsync($"/api/contractors/{contractorId}/addresses/legal", address);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<Address?> GetPostalAddressAsync(long contractorId) =>
+        await http.GetFromJsonAsync<Address>($"/api/contractors/{contractorId}/addresses/postal");
+
+    public async Task UpdatePostalAddressAsync(long contractorId, AddressDto address)
+    {
+        var response = await http.PutAsJsonAsync($"/api/contractors/{contractorId}/addresses/postal", address);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<List<BankAccount>> GetBankAccountsAsync(long contractorId) =>
         await http.GetFromJsonAsync<List<BankAccount>>($"/api/contractors/{contractorId}/bank-accounts") ?? [];
 
