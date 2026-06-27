@@ -11,8 +11,15 @@ public class AuthTokenStore(ProtectedLocalStorage localStorage)
 
     public async Task<string?> GetTokenAsync()
     {
-        var result = await localStorage.GetAsync<string>(TokenKey);
-        return result.Success ? result.Value : null;
+        try
+        {
+            var result = await localStorage.GetAsync<string>(TokenKey);
+            return result.Success ? result.Value : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task SetTokenAsync(string token)
