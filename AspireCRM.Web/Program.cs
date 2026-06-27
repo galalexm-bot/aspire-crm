@@ -15,14 +15,21 @@ builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthStateProvider>();
 builder.Services.AddScoped<JwtAuthStateProvider>();
 builder.Services.AddTransient<JwtDelegatingHandler>();
 
+var apiBaseUrl = builder.Configuration["ApiServiceUrl"] ?? "https+http://apiservice";
+
+builder.Services.AddHttpClient(string.Empty, client =>
+    {
+        client.BaseAddress = new(apiBaseUrl);
+    });
+
 builder.Services.AddHttpClient<WeatherApiClient>(client =>
     {
-        client.BaseAddress = new("https+http://apiservice");
+        client.BaseAddress = new(apiBaseUrl);
     });
 
 builder.Services.AddHttpClient<CrmApiClient>(client =>
     {
-        client.BaseAddress = new("https+http://apiservice");
+        client.BaseAddress = new(apiBaseUrl);
     }).AddHttpMessageHandler<JwtDelegatingHandler>();
 
 var app = builder.Build();

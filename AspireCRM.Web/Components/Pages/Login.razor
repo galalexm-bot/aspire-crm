@@ -56,7 +56,7 @@
         Error = null;
         try
         {
-            var response = await Http.PostAsJsonAsync("https+http://apiservice/api/auth/login", new { Email, Password });
+            var response = await Http.PostAsJsonAsync("/api/auth/login", new { Email, Password });
             if (!response.IsSuccessStatusCode)
             {
                 Error = "Неверный email или пароль";
