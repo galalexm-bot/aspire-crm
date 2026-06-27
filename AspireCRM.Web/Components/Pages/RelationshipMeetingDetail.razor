@@ -88,6 +88,15 @@ else
             <div class="row mb-3">
                 <div class="col">
                     <div class="form-check">
+                        <input @bind="isPrivate" class="form-check-input" type="checkbox" id="isPrivate" />
+                        <label class="form-check-label" for="isPrivate">Приватное</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <div class="form-check">
                         <input @bind="timeNotSet" class="form-check-input" type="checkbox" id="timeNotSet" />
                         <label class="form-check-label" for="timeNotSet">Время не установлено</label>
                     </div>
@@ -141,6 +150,7 @@ else
     private long? contractorId;
     private long? saleId;
     private long? contactId;
+    private bool isPrivate;
 
     private List<Contractor> contractors = [];
     private List<Sale> sales = [];
@@ -167,6 +177,7 @@ else
                 contractorId = relationship.ContractorId;
                 saleId = relationship.SaleId;
                 contactId = relationship.ContactId;
+                isPrivate = relationship.IsPrivate;
                 if (relationship is RelationshipMeeting meeting)
                 {
                     place = meeting.Place;
@@ -213,7 +224,8 @@ else
                     SaleId = saleId,
                     ContactId = contactId,
                     Place = place,
-                    TimeNotSet = timeNotSet
+                    TimeNotSet = timeNotSet,
+                    IsPrivate = isPrivate
                 };
                 var created = await Api.CreateRelationshipAsync(req);
                 Nav.NavigateTo($"/relationships/meeting/{created.Id}");
@@ -231,7 +243,8 @@ else
                     SaleId = saleId,
                     ContactId = contactId,
                     Place = place,
-                    TimeNotSet = timeNotSet
+                    TimeNotSet = timeNotSet,
+                    IsPrivate = isPrivate
                 };
                 await Api.UpdateRelationshipAsync(Id!.Value, req);
                 success = "Сохранено";

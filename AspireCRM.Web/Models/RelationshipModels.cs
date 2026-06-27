@@ -39,6 +39,7 @@ public class CreateRelationshipRequest
     public string? UniqueId { get; set; }
     public string? Place { get; set; }
     public bool TimeNotSet { get; set; }
+    public bool IsPrivate { get; set; }
 }
 
 public class UpdateRelationshipRequest
@@ -55,4 +56,5 @@ public class UpdateRelationshipRequest
     public string? CallType { get; set; }
     public string? Place { get; set; }
     public bool TimeNotSet { get; set; }
+    public bool IsPrivate { get; set; }
 }

@@ -106,6 +106,7 @@ public static class RelationshipEndpoints
             relationship.ContactId = request.ContactId;
             relationship.TenantId = tenantService.TenantId.Value;
             relationship.CreationDate = DateTime.UtcNow;
+            relationship.IsPrivate = request.IsPrivate;
 
             db.Relationships.Add(relationship);
             await db.SaveChangesAsync();
@@ -133,6 +134,7 @@ public static class RelationshipEndpoints
             relationship.LeadId = request.LeadId;
             relationship.ContactId = request.ContactId;
             relationship.ChangeDate = DateTime.UtcNow;
+            relationship.IsPrivate = request.IsPrivate;
 
             if (relationship is RelationshipCall call && request.CallType is not null)
                 call.Type = Enum.TryParse<RelationshipCallType>(request.CallType, out var callType) ? callType : call.Type;
@@ -274,6 +276,7 @@ public class CreateRelationshipRequest
     public string? UniqueId { get; set; }
     public string? Place { get; set; }
     public bool TimeNotSet { get; set; }
+    public bool IsPrivate { get; set; }
 }
 
 public class UpdateRelationshipRequest
@@ -290,6 +293,7 @@ public class UpdateRelationshipRequest
     public string? CallType { get; set; }
     public string? Place { get; set; }
     public bool TimeNotSet { get; set; }
+    public bool IsPrivate { get; set; }
 }
 
 public class AddRelationshipUserRequest
