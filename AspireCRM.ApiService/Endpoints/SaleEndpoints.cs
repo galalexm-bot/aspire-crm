@@ -1,5 +1,6 @@
 using AspireCRM.DataLayer;
 using AspireCRM.DataLayer.Repositories;
+using AspireCRM.Domain.Products;
 using AspireCRM.Domain.Sales;
 using Microsoft.EntityFrameworkCore;
 
@@ -67,5 +68,85 @@ public static class SaleEndpoints
             await repo.DeleteAsync(sale);
             return Results.NoContent();
         });
+
+        api.MapGet("/{saleId:long}/products", async (long saleId, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var products = await db.SaleProducts
+                .Include(sp => sp.Product)
+                .Where(sp => sp.SaleId == saleId && sp.TenantId == tenantService.TenantId.Value && !sp.IsDeleted)
+                .ToListAsync();
+
+            return Results.Ok(products);
+        });
+
+        api.MapPost("/{saleId:long}/products", async (long saleId, SaleProductRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var sale = await db.Sales
+                .FirstOrDefaultAsync(s => s.Id == saleId && s.TenantId == tenantService.TenantId.Value && !s.IsDeleted);
+
+            if (sale is null) return Results.NotFound();
+
+            var product = await db.Products
+                .FirstOrDefaultAsync(p => p.Id == request.ProductId && p.TenantId == tenantService.TenantId.Value && !p.IsDeleted);
+
+            if (product is null) return Results.NotFound();
+
+            var saleProduct = new SaleProduct
+            {
+                SaleId = saleId,
+                ProductId = request.ProductId,
+                Quantity = request.Quantity,
+                Price = request.Price,
+                Discount = request.Discount,
+                TenantId = tenantService.TenantId.Value
+            };
+
+            db.SaleProducts.Add(saleProduct);
+            await db.SaveChangesAsync();
+            return Results.Created($"/api/sales/{saleId}/products/{saleProduct.Id}", saleProduct);
+        });
+
+        api.MapPut("/{saleId:long}/products/{productId:long}", async (long saleId, long productId, SaleProductRequest request, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var saleProduct = await db.SaleProducts
+                .FirstOrDefaultAsync(sp => sp.Id == productId && sp.SaleId == saleId && sp.TenantId == tenantService.TenantId.Value && !sp.IsDeleted);
+
+            if (saleProduct is null) return Results.NotFound();
+
+            saleProduct.ProductId = request.ProductId;
+            saleProduct.Quantity = request.Quantity;
+            saleProduct.Price = request.Price;
+            saleProduct.Discount = request.Discount;
+            saleProduct.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
+        api.MapDelete("/{saleId:long}/products/{productId:long}", async (long saleId, long productId, AspireCRMDbContext db, ITenantService tenantService) =>
+        {
+            if (!tenantService.TenantId.HasValue)
+                return Results.Unauthorized();
+
+            var saleProduct = await db.SaleProducts
+                .FirstOrDefaultAsync(sp => sp.Id == productId && sp.SaleId == saleId && sp.TenantId == tenantService.TenantId.Value && !sp.IsDeleted);
+
+            if (saleProduct is null) return Results.NotFound();
+
+            saleProduct.IsDeleted = true;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
     }
 }
+
+public record SaleProductRequest(long ProductId, double Quantity, double Price, double? Discount);

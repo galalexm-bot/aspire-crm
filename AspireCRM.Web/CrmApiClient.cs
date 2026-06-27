@@ -162,6 +162,15 @@ public class CrmApiClient(HttpClient http)
     public Task UpdateProductAsync(long id, Product p) => UpdateAsync("/api/products", id, p);
     public Task DeleteProductAsync(long id) => DeleteAsync("/api/products", id);
 
+    public Task<List<SaleProduct>> GetSaleProductsAsync(long saleId) =>
+        GetListAsync<SaleProduct>($"/api/sales/{saleId}/products");
+    public Task<SaleProduct> CreateSaleProductAsync(long saleId, SaleProduct sp) =>
+        CreateAsync($"/api/sales/{saleId}/products", sp);
+    public Task UpdateSaleProductAsync(long saleId, long productId, SaleProduct sp) =>
+        UpdateAsync($"/api/sales/{saleId}/products", productId, sp);
+    public Task DeleteSaleProductAsync(long saleId, long productId) =>
+        DeleteAsync($"/api/sales/{saleId}/products", productId);
+
     public Task<List<Category>> GetCategoriesAsync() => GetListAsync<Category>("/api/categories");
     public Task<Category?> GetCategoryAsync(long id) => GetByIdAsync<Category>("/api/categories", id);
     public Task<Category> CreateCategoryAsync(Category c) => CreateAsync("/api/categories", c);

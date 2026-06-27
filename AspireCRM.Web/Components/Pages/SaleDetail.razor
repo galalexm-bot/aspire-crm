@@ -126,6 +126,72 @@ else
             </div>
         </div>
     </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>Товары</h5></div>
+        <div class="card-body">
+            @if (saleProducts.Count == 0)
+            {
+                <p class="text-muted">Нет товаров</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>Кол-во</th>
+                            <th>Цена</th>
+                            <th>Скидка</th>
+                            <th>Сумма</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sp in saleProducts)
+                        {
+                            <tr>
+                                <td>@sp.Product?.Name</td>
+                                <td>@sp.Quantity</td>
+                                <td>@sp.Price.ToString("F2")</td>
+                                <td>@(sp.Discount?.ToString("F2") ?? "-")</td>
+                                <td>@((sp.Quantity * sp.Price * (1 - (sp.Discount ?? 0) / 100)).ToString("F2"))</td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm" @onclick="() => RemoveProduct(sp.Id)" disabled="@isLoading">Удалить</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <hr />
+            <h6>Добавить товар</h6>
+            <div class="row">
+                <div class="col-md-3 mb-2">
+                    <select @bind="newProduct.ProductId" class="form-select form-select-sm">
+                        <option value="0">-- Выберите товар --</option>
+                        @foreach (var p in products)
+                        {
+                            <option value="@p.Id">@p.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2 mb-2">
+                    <input @bind="newProduct.Quantity" class="form-control form-control-sm" placeholder="Кол-во" type="number" step="any" />
+                </div>
+                <div class="col-md-2 mb-2">
+                    <input @bind="newProduct.Price" class="form-control form-control-sm" placeholder="Цена" type="number" step="0.01" />
+                </div>
+                <div class="col-md-2 mb-2">
+                    <input @bind="newProduct.Discount" class="form-control form-control-sm" placeholder="Скидка %" type="number" step="0.01" />
+                </div>
+                <div class="col-md-1 mb-2">
+                    <button class="btn btn-success btn-sm" @onclick="AddProduct" disabled="@isLoading">+</button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -141,6 +207,10 @@ else
     private List<SaleStage> stages = [];
     private List<SaleType> types = [];
     private List<Currency> currencies = [];
+
+    private List<SaleProduct> saleProducts = [];
+    private List<Product> products = [];
+    private SaleProduct newProduct = new() { Quantity = 1, ProductId = 0 };
 
     private string StatusDisplay(SaleStatus status) => status switch
     {
@@ -164,7 +234,10 @@ else
     {
         var loadTask = LoadSale();
         var lookupTask = LoadLookups();
-        await Task.WhenAll(loadTask, lookupTask);
+        var productsTask = LoadProducts();
+        await Task.WhenAll(loadTask, lookupTask, productsTask);
+        if (sale is not null)
+            await LoadSaleProducts();
     }
 
     private async Task LoadSale()
@@ -190,6 +263,82 @@ else
             Task.Run(async () => { try { currencies = await Api.GetLookupAsync<Currency>("currencies"); } catch { } })
         };
         await Task.WhenAll(tasks);
+    }
+
+    private async Task LoadSaleProducts()
+    {
+        try
+        {
+            saleProducts = await Api.GetSaleProductsAsync(Id);
+        }
+        catch { }
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            products = await Api.GetProductsAsync();
+        }
+        catch { }
+    }
+
+    private async Task AddProduct()
+    {
+        if (newProduct.ProductId <= 0)
+        {
+            error = "Выберите товар";
+            return;
+        }
+        if (newProduct.Quantity <= 0)
+        {
+            error = "Количество должно быть больше 0";
+            return;
+        }
+        if (newProduct.Price <= 0)
+        {
+            error = "Цена должна быть больше 0";
+            return;
+        }
+
+        isLoading = true;
+        error = null;
+        try
+        {
+            newProduct.SaleId = Id;
+            await Api.CreateSaleProductAsync(Id, newProduct);
+            await LoadSaleProducts();
+            newProduct = new SaleProduct { Quantity = 1, ProductId = 0 };
+            success = "Товар добавлен";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RemoveProduct(long productId)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await Api.DeleteSaleProductAsync(Id, productId);
+            await LoadSaleProducts();
+            success = "Товар удалён";
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async Task Save()
