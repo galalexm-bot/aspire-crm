@@ -67,7 +67,7 @@
             {
                 await TokenStore.SetTokenAsync(result.Token);
                 AuthStateProvider.NotifyAuthStateChanged();
-                Navigation.NavigateTo("/");
+                Navigation.NavigateTo("/", forceLoad: true);
             }
         }
         catch (Exception ex)

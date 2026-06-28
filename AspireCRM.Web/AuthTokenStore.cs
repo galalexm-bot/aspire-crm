@@ -1,20 +1,25 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.JSInterop;
 
 namespace AspireCRM.Web;
 
-public class AuthTokenStore(ProtectedLocalStorage localStorage)
+public class AuthTokenStore
 {
+    private readonly IJSRuntime _js;
     private const string TokenKey = "auth_token";
+
+    public AuthTokenStore(IJSRuntime js)
+    {
+        _js = js;
+    }
 
     public async Task<string?> GetTokenAsync()
     {
         try
         {
-            var result = await localStorage.GetAsync<string>(TokenKey);
-            return result.Success ? result.Value : null;
+            return await _js.InvokeAsync<string>("localStorage.getItem", TokenKey);
         }
         catch
         {
@@ -24,12 +29,12 @@ public class AuthTokenStore(ProtectedLocalStorage localStorage)
 
     public async Task SetTokenAsync(string token)
     {
-        await localStorage.SetAsync(TokenKey, token);
+        await _js.InvokeVoidAsync("localStorage.setItem", TokenKey, token);
     }
 
     public async Task ClearAsync()
     {
-        await localStorage.DeleteAsync(TokenKey);
+        await _js.InvokeVoidAsync("localStorage.removeItem", TokenKey);
     }
 }
 
