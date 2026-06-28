@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddRedisOutputCache("cache");
+builder.Services.AddOutputCache();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
