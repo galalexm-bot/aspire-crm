@@ -23,7 +23,7 @@ public class FtsIndexingService
         await _db.Database.ExecuteSqlRawAsync("INSERT INTO FtsSearch(entity_type, entity_id, title, content) SELECT 'Inpayment', Id, Name, COALESCE(Comment, '') FROM Inpayments WHERE IsDeleted = 0");
         await _db.Database.ExecuteSqlRawAsync("INSERT INTO FtsSearch(entity_type, entity_id, title, content) SELECT 'Product', Id, Name, '' FROM Products WHERE IsDeleted = 0");
         await _db.Database.ExecuteSqlRawAsync("INSERT INTO FtsSearch(entity_type, entity_id, title, content) SELECT 'Relationship', Id, Theme, COALESCE(Description, '') FROM Relationships WHERE IsDeleted = 0");
-        await _db.Database.ExecuteSqlRawAsync("INSERT INTO FtsSearch(entity_type, entity_id, title, content) SELECT 'MarketingActivity', Id, Name, COALESCE(Description, '') FROM MarketingActivities WHERE IsDeleted = 0");
+        await _db.Database.ExecuteSqlRawAsync("INSERT INTO FtsSearch(entity_type, entity_id, title, content) SELECT 'MarketingActivity', Id, Name, COALESCE(Description, '') FROM MarketingActivity WHERE IsDeleted = 0");
     }
 
     public async Task<SearchResponse> SearchAsync(string query, int page = 1, int pageSize = 20)
