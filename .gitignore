@@ -12,3 +12,6 @@ AspireCRM.Web/bin/
 AspireCRM.Web/obj/
 AspireCRM.DataLayer/bin/
 AspireCRM.Domain/bin/
+AspireCRM.ApiService/aspirecrm.db
+AspireCRM.ApiService/aspirecrm.db-shm
+AspireCRM.ApiService/aspirecrm.db-wal
